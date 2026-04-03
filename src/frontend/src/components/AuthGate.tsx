@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Building2,
+  Eye,
+  EyeOff,
   GraduationCap,
   Loader2,
   ShieldCheck,
@@ -17,110 +19,117 @@ import {
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useState } from "react";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useCallerUserProfile, useSaveUserProfile } from "../hooks/useQueries";
+import { useState } from "react";
+import { useLocalAuth } from "../hooks/useLocalAuth";
 
 const ROLE_CARDS = [
   {
     icon: ShieldCheck,
     role: "Super Admin",
     description: "Full system access, manage school admins and global settings",
-    color: "text-amber-400",
-    bg: "bg-amber-400/10 border-amber-400/30",
+    color: "text-amber-600",
+    bg: "bg-amber-50 border-amber-200",
   },
   {
     icon: Building2,
     role: "School Admin",
     description: "Manage students, staff, and all school operations",
-    color: "text-blue-400",
-    bg: "bg-blue-400/10 border-blue-400/30",
+    color: "text-blue-600",
+    bg: "bg-blue-50 border-blue-200",
   },
   {
     icon: GraduationCap,
     role: "Teacher",
     description: "Manage classes, assign grades, and publish LMS courses",
-    color: "text-green-400",
-    bg: "bg-green-400/10 border-green-400/30",
+    color: "text-green-600",
+    bg: "bg-green-50 border-green-200",
   },
   {
     icon: UserCog,
     role: "HR Manager",
     description: "Handle payroll, staff records, and leave management",
-    color: "text-purple-400",
-    bg: "bg-purple-400/10 border-purple-400/30",
+    color: "text-purple-600",
+    bg: "bg-purple-50 border-purple-200",
   },
   {
     icon: Users,
     role: "Student",
     description: "Access courses, view grades, and read announcements",
-    color: "text-cyan-400",
-    bg: "bg-cyan-400/10 border-cyan-400/30",
+    color: "text-cyan-600",
+    bg: "bg-cyan-50 border-cyan-200",
   },
 ];
 
 function LoginScreen() {
-  const { login, loginStatus, isLoggingIn } = useInternetIdentity();
+  const { login } = useLocalAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!username.trim() || !password.trim()) {
+      setError("Please enter both username and password");
+      return;
+    }
+    setIsLoading(true);
+    // Small timeout to show loading state
+    setTimeout(() => {
+      const result = login(username.trim(), password);
+      if (!result.success) {
+        setError(result.error ?? "Login failed");
+        setIsLoading(false);
+      }
+      // If success, the provider state update will re-render and exit login screen
+    }, 300);
+  };
 
   return (
-    <div className="min-h-screen bg-sidebar flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-sidebar-border/30">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <img
             src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
             alt="Classio ERP"
-            className="w-10 h-10 rounded-lg object-cover border border-sidebar-border/40"
+            className="w-10 h-10 rounded-lg object-cover border border-slate-200"
           />
           <div>
-            <span className="text-sidebar-foreground font-bold text-lg leading-none">
+            <span className="text-slate-800 font-bold text-lg leading-none">
               Classio ERP
             </span>
-            <p className="text-sidebar-foreground/50 text-xs mt-0.5">
+            <p className="text-slate-400 text-xs mt-0.5">
               School Management System
             </p>
           </div>
         </div>
-        <Button
-          data-ocid="login.primary_button"
-          onClick={login}
-          disabled={isLoggingIn}
-          className="bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground"
-          size="sm"
-        >
-          {isLoggingIn ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Signing in...
-            </>
-          ) : (
-            "Sign In"
-          )}
-        </Button>
       </header>
 
-      {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center px-4 pt-12 pb-8">
+      {/* Main */}
+      <main className="flex-1 flex flex-col items-center px-4 pt-10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-12 max-w-2xl"
+          transition={{ duration: 0.4 }}
+          className="text-center mb-10 max-w-2xl"
         >
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-5">
             <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-sidebar-primary/30 blur-2xl scale-110" />
+              <div className="absolute inset-0 rounded-2xl bg-blue-200/60 blur-2xl scale-110" />
               <img
                 src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
                 alt="Classio ERP"
-                className="relative w-24 h-24 rounded-2xl object-cover border-2 border-sidebar-primary/50 shadow-xl"
+                className="relative w-20 h-20 rounded-2xl object-cover border-2 border-blue-200 shadow-lg"
               />
             </div>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-sidebar-foreground mb-4 tracking-tight">
-            Welcome to <span className="text-sidebar-primary">Classio ERP</span>
+          <h1 className="text-4xl sm:text-5xl font-bold text-slate-800 mb-3 tracking-tight">
+            Welcome to <span className="text-blue-600">Classio ERP</span>
           </h1>
-          <p className="text-sidebar-foreground/60 text-lg max-w-xl mx-auto">
+          <p className="text-slate-500 text-base max-w-xl mx-auto">
             A comprehensive school management platform for administrators,
             teachers, HR teams, and students.
           </p>
@@ -128,21 +137,21 @@ function LoginScreen() {
 
         {/* Role Cards */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="w-full max-w-4xl mb-10"
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="w-full max-w-4xl mb-8"
         >
-          <p className="text-center text-sidebar-foreground/50 text-sm font-medium uppercase tracking-widest mb-5">
+          <p className="text-center text-slate-400 text-xs font-semibold uppercase tracking-widest mb-4">
             Who uses Classio ERP
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {ROLE_CARDS.map((card, i) => (
               <motion.div
                 key={card.role}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 + i * 0.07 }}
+                transition={{ duration: 0.3, delay: 0.15 + i * 0.06 }}
                 className={`rounded-xl border p-4 ${card.bg} flex items-start gap-3`}
               >
                 <div className={`mt-0.5 shrink-0 ${card.color}`}>
@@ -152,7 +161,7 @@ function LoginScreen() {
                   <h3 className={`font-semibold text-sm ${card.color}`}>
                     {card.role}
                   </h3>
-                  <p className="text-sidebar-foreground/55 text-xs mt-1 leading-relaxed">
+                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">
                     {card.description}
                   </p>
                 </div>
@@ -161,60 +170,111 @@ function LoginScreen() {
           </div>
         </motion.div>
 
-        {/* Sign-in Section */}
+        {/* Login Form */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.55 }}
+          transition={{ duration: 0.4, delay: 0.45 }}
           className="w-full max-w-sm"
         >
-          <Card className="shadow-xl border border-sidebar-border/30 bg-white/5 backdrop-blur-sm">
+          <Card className="shadow-lg border border-slate-200 bg-white">
             <CardHeader className="text-center pb-3">
-              <CardTitle className="text-sidebar-foreground text-xl">
-                Sign In to Your Account
-              </CardTitle>
-              <CardDescription className="text-sidebar-foreground/55">
-                Use Internet Identity to securely access your role
+              <CardTitle className="text-slate-800 text-xl">Sign In</CardTitle>
+              <CardDescription className="text-slate-500">
+                Enter your credentials to access your account
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                data-ocid="login.primary_button"
-                onClick={login}
-                disabled={isLoggingIn}
-                className="w-full bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground h-11 font-semibold"
-              >
-                {isLoggingIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>Sign In with Internet Identity</>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="username" className="text-slate-700">
+                    Username
+                  </Label>
+                  <Input
+                    id="username"
+                    data-ocid="login.username_input"
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your username"
+                    disabled={isLoading}
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-slate-700">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      data-ocid="login.password_input"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      disabled={isLoading}
+                      className="h-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <p
+                    className="text-red-500 text-sm text-center"
+                    data-ocid="login.error_state"
+                  >
+                    {error}
+                  </p>
                 )}
-              </Button>
-              {loginStatus === "loginError" && (
-                <p
-                  className="text-destructive text-sm text-center"
-                  data-ocid="login.error_state"
+
+                <Button
+                  data-ocid="login.primary_button"
+                  type="submit"
+                  className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                  disabled={isLoading}
                 >
-                  Login failed. Please try again.
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+
+                <p className="text-center text-slate-400 text-xs">
+                  Default superadmin:{" "}
+                  <span className="font-mono text-slate-600">admin</span> /
+                  <span className="font-mono text-slate-600"> admin123</span>
                 </p>
-              )}
-              <p className="text-center text-sidebar-foreground/40 text-xs">
-                Your identity is secured by the Internet Computer
-              </p>
+              </form>
             </CardContent>
           </Card>
         </motion.div>
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-4 text-sidebar-foreground/30 text-xs border-t border-sidebar-border/20">
+      <footer className="text-center py-4 text-slate-400 text-xs border-t border-slate-200 bg-white/60">
         © {new Date().getFullYear()}. Built with love using{" "}
         <a
           href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
-          className="underline hover:text-sidebar-foreground/60 transition-colors"
+          className="underline hover:text-slate-600 transition-colors"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -225,91 +285,15 @@ function LoginScreen() {
   );
 }
 
-function ProfileSetupModal({
-  onComplete,
-}: {
-  onComplete: () => void;
-}) {
-  const [name, setName] = useState("");
-  const saveProfile = useSaveUserProfile();
-
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!name.trim()) return;
-      await saveProfile.mutateAsync({ name: name.trim(), role: "user" });
-      onComplete();
-    },
-    [name, saveProfile, onComplete],
-  );
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-sidebar">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-sm px-4"
-      >
-        <Card className="shadow-xl border-0">
-          <CardHeader>
-            <CardTitle>Set Up Your Profile</CardTitle>
-            <CardDescription>
-              Tell us your name to get started with Classio ERP
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  data-ocid="profile.input"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. John Smith"
-                  required
-                />
-              </div>
-              <Button
-                data-ocid="profile.submit_button"
-                type="submit"
-                className="w-full"
-                disabled={saveProfile.isPending || !name.trim()}
-              >
-                {saveProfile.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Continue to Dashboard"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
-  );
-}
-
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const { identity, isInitializing } = useInternetIdentity();
-  const isAuthenticated = !!identity;
-  const {
-    data: userProfile,
-    isLoading: profileLoading,
-    isFetched,
-  } = useCallerUserProfile();
+  const { isInitializing, isAuthenticated } = useLocalAuth();
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sidebar">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-sidebar-primary mx-auto mb-3" />
-          <p className="text-sidebar-foreground/60 text-sm">
-            Loading Classio ERP...
-          </p>
+          <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm">Loading Classio ERP...</p>
         </div>
       </div>
     );
@@ -317,26 +301,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return <LoginScreen />;
-  }
-
-  if (profileLoading || !isFetched) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-sidebar">
-        <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-sidebar-primary mx-auto mb-3" />
-          <p className="text-sidebar-foreground/60 text-sm">
-            Loading your profile...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const showProfileSetup =
-    isAuthenticated && !profileLoading && isFetched && userProfile === null;
-
-  if (showProfileSetup) {
-    return <ProfileSetupModal onComplete={() => {}} />;
   }
 
   return <>{children}</>;

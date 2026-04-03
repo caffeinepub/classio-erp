@@ -13,32 +13,28 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { EmptyState, PageHeader, StatsCard } from "../components/shared";
+import { useLocalAuth } from "../hooks/useLocalAuth";
 import {
   useAllAnnouncements,
   useAllApplicants,
-  useCallerRole,
   useDashboardStats,
   useTotalFeesCollected,
 } from "../hooks/useQueries";
 import { formatINR } from "../utils/currencyUtils";
 import { bigIntToDateString } from "../utils/dateUtils";
 
-function getRoleLabel(role: any): string {
+function getRoleLabel(role: string | null): string {
   if (!role) return "User";
-  if (typeof role === "object") {
-    const key = Object.keys(role)[0];
-    if (!key) return "User";
-    const map: Record<string, string> = {
-      superAdmin: "Super Admin",
-      schoolAdmin: "School Admin",
-      teacher: "Teacher",
-      hrManager: "HR Manager",
-      student: "Student",
-      user: "User",
-    };
-    return map[key] ?? key;
-  }
-  return String(role);
+  const map: Record<string, string> = {
+    superadmin: "Super Admin",
+    schooladmin: "School Admin",
+    teacher: "Teacher",
+    hr: "HR Manager",
+    student: "Student",
+    admin: "Admin",
+    user: "User",
+  };
+  return map[role] ?? role;
 }
 
 export default function DashboardPage({
@@ -51,13 +47,13 @@ export default function DashboardPage({
     useAllAnnouncements();
   const { data: applicants = [] } = useAllApplicants();
   const { data: totalFeesCollected = BigInt(0) } = useTotalFeesCollected();
-  const { data: callerRole } = useCallerRole();
+  const { user } = useLocalAuth();
 
   const pendingAdmissions = (applicants as any[]).filter(
     (a: any) => a.status === "pending",
   ).length;
 
-  const roleLabel = getRoleLabel(callerRole);
+  const roleLabel = getRoleLabel(user?.role ?? null);
 
   const quickActions = [
     { label: "Add Student", page: "students", color: "bg-blue-500" },
@@ -97,7 +93,7 @@ export default function DashboardPage({
               <h1 className="text-2xl font-bold text-sidebar-foreground leading-tight">
                 Classio ERP
               </h1>
-              {callerRole && (
+              {user && (
                 <Badge
                   className="bg-sidebar-primary/20 text-sidebar-primary border border-sidebar-primary/40 text-xs font-semibold"
                   variant="outline"
@@ -112,7 +108,7 @@ export default function DashboardPage({
             <p className="text-sidebar-foreground/40 text-xs mt-0.5">
               Logged in as:{" "}
               <span className="text-sidebar-foreground/70 font-medium">
-                {roleLabel}
+                {user?.name ?? roleLabel}
               </span>
             </p>
           </div>

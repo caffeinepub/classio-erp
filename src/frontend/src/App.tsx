@@ -3,7 +3,6 @@ import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import AuthGate from "./components/AuthGate";
 import Sidebar from "./components/Sidebar";
-import { useCallerUserProfile } from "./hooks/useQueries";
 import AdmissionsPage from "./pages/AdmissionsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AttendancePage from "./pages/AttendancePage";
@@ -57,7 +56,6 @@ function MainApp() {
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [pageHistory, setPageHistory] = useState<Page[]>(["dashboard"]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
-  const { data: userProfile } = useCallerUserProfile();
 
   const canGoBack = pageHistory.length > 1;
 
@@ -152,11 +150,7 @@ function MainApp() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar
-        activePage={activePage}
-        onNavigate={handleNavigate}
-        userProfile={userProfile ?? null}
-      />
+      <Sidebar activePage={activePage} onNavigate={handleNavigate} />
       <main className="flex-1 overflow-y-auto">
         {canGoBack && (
           <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">

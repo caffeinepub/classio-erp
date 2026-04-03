@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   BookOpen,
@@ -24,9 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import type { UserProfile } from "../backend.d";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useCallerRole } from "../hooks/useQueries";
+import { useLocalAuth } from "../hooks/useLocalAuth";
 
 type NavItem = {
   id: string;
@@ -141,7 +138,6 @@ const sections = [
 type SidebarProps = {
   activePage: string;
   onNavigate: (page: string) => void;
-  userProfile: UserProfile | null;
 };
 
 function NavSection({
@@ -161,9 +157,15 @@ function NavSection({
   onToggle: () => void;
   userRole: string | null;
 }) {
-  const adminRoles = ["admin", "superadmin"];
-  const schoolAdminRoles = ["admin", "superadmin", "schooladmin"];
-  const hrRoles = ["admin", "superadmin", "schooladmin", "hr"];
+  const adminRoles = ["superadmin", "admin", "schooladmin"];
+  const hrRoles = ["superadmin", "admin", "schooladmin", "hr"];
+  const schoolAdminRoles = [
+    "superadmin",
+    "admin",
+    "schooladmin",
+    "hr",
+    "teacher",
+  ];
 
   // Section visibility
   const isSectionVisible = () => {
@@ -254,16 +256,9 @@ function NavLink({
   );
 }
 
-export default function Sidebar({
-  activePage,
-  onNavigate,
-  userProfile,
-}: SidebarProps) {
-  const { clear } = useInternetIdentity();
-  const queryClient = useQueryClient();
-  const { data: roleData } = useCallerRole();
-
-  const userRole = typeof roleData === "string" ? roleData : null;
+export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
+  const { user, logout } = useLocalAuth();
+  const userRole = user?.role ?? null;
 
   const [collapsedSections, setCollapsedSections] = useState<
     Record<string, boolean>
@@ -273,9 +268,8 @@ export default function Sidebar({
     setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const handleLogout = async () => {
-    await clear();
-    queryClient.clear();
+  const handleLogout = () => {
+    logout();
   };
 
   const topNavItems = navItems.filter((item) => !item.section);
@@ -339,15 +333,15 @@ export default function Sidebar({
         <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors">
           <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
             <span className="text-sidebar-foreground text-sm font-semibold">
-              {userProfile?.name?.charAt(0)?.toUpperCase() ?? "?"}
+              {user?.name?.charAt(0)?.toUpperCase() ?? "?"}
             </span>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sidebar-foreground text-sm font-medium truncate">
-              {userProfile?.name ?? "User"}
+              {user?.name ?? "User"}
             </p>
             <p className="text-sidebar-foreground/60 text-xs capitalize">
-              {userRole ?? userProfile?.role ?? "user"}
+              {userRole ?? "user"}
             </p>
           </div>
           <button

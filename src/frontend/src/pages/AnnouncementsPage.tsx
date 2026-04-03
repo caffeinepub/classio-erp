@@ -18,12 +18,12 @@ import {
   useAllAnnouncements,
   useCreateAnnouncement,
 } from "../hooks/useQueries";
-import { useCallerUserProfile } from "../hooks/useQueries";
+
 import { bigIntToDateString } from "../utils/dateUtils";
 
 export default function AnnouncementsPage() {
   const { data: announcements, isLoading } = useAllAnnouncements();
-  const { data: profile } = useCallerUserProfile();
+
   const createAnnouncement = useCreateAnnouncement();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,7 +36,7 @@ export default function AnnouncementsPage() {
       await createAnnouncement.mutateAsync({
         title,
         body,
-        authorName: profile?.name ?? "Admin",
+        authorName: "Admin",
       });
       toast.success("Announcement posted");
       setModalOpen(false);
