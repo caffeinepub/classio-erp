@@ -1,8 +1,10 @@
 import { Toaster } from "@/components/ui/sonner";
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import AuthGate from "./components/AuthGate";
 import Sidebar from "./components/Sidebar";
 import { useCallerUserProfile } from "./hooks/useQueries";
+import AdmissionsPage from "./pages/AdmissionsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AttendancePage from "./pages/AttendancePage";
 import ClassesPage from "./pages/ClassesPage";
@@ -10,9 +12,14 @@ import CourseDetailPage from "./pages/CourseDetailPage";
 import CoursesPage from "./pages/CoursesPage";
 import DashboardPage from "./pages/DashboardPage";
 import DepartmentsPage from "./pages/DepartmentsPage";
+import ExpensesPage from "./pages/ExpensesPage";
+import FeeStructuresPage from "./pages/FeeStructuresPage";
 import GradesPage from "./pages/GradesPage";
+import InvoicesPage from "./pages/InvoicesPage";
 import LeaveRequestsPage from "./pages/LeaveRequestsPage";
+import PaymentsPage from "./pages/PaymentsPage";
 import PayrollPage from "./pages/PayrollPage";
+import SchoolAdminsPage from "./pages/SchoolAdminsPage";
 import SettingsPage from "./pages/SettingsPage";
 import StaffPage from "./pages/StaffPage";
 import StudentsPage from "./pages/StudentsPage";
@@ -22,6 +29,7 @@ import UserManagementPage from "./pages/UserManagementPage";
 
 type Page =
   | "dashboard"
+  | "admissions"
   | "students"
   | "teachers"
   | "classes"
@@ -35,28 +43,64 @@ type Page =
   | "courses"
   | "course-detail"
   | "submissions"
+  | "fee-structures"
+  | "invoices"
+  | "payments"
+  | "expenses"
+  | "school-admins"
   | "user-management"
   | "settings";
 
+const MAX_HISTORY = 20;
+
 function MainApp() {
   const [activePage, setActivePage] = useState<Page>("dashboard");
+  const [pageHistory, setPageHistory] = useState<Page[]>(["dashboard"]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const { data: userProfile } = useCallerUserProfile();
 
+  const canGoBack = pageHistory.length > 1;
+
   const handleNavigate = (page: string) => {
-    setActivePage(page as Page);
-    if (page !== "course-detail") setActiveCourseId(null);
+    const newPage = page as Page;
+    setActivePage(newPage);
+    if (newPage !== "course-detail") setActiveCourseId(null);
+    setPageHistory((prev) => {
+      const next = [...prev, newPage];
+      return next.length > MAX_HISTORY
+        ? next.slice(next.length - MAX_HISTORY)
+        : next;
+    });
+  };
+
+  const handleBack = () => {
+    setPageHistory((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = prev.slice(0, -1);
+      const prevPage = next[next.length - 1];
+      setActivePage(prevPage);
+      if (prevPage !== "course-detail") setActiveCourseId(null);
+      return next;
+    });
   };
 
   const handleCourseDetail = (courseId: string) => {
     setActiveCourseId(courseId);
     setActivePage("course-detail");
+    setPageHistory((prev) => {
+      const next = [...prev, "course-detail" as Page];
+      return next.length > MAX_HISTORY
+        ? next.slice(next.length - MAX_HISTORY)
+        : next;
+    });
   };
 
   const renderPage = () => {
     switch (activePage) {
       case "dashboard":
         return <DashboardPage onNavigate={handleNavigate} />;
+      case "admissions":
+        return <AdmissionsPage />;
       case "students":
         return <StudentsPage />;
       case "teachers":
@@ -81,15 +125,22 @@ function MainApp() {
         return <CoursesPage onCourseDetail={handleCourseDetail} />;
       case "course-detail":
         return activeCourseId ? (
-          <CourseDetailPage
-            courseId={activeCourseId}
-            onBack={() => setActivePage("courses")}
-          />
+          <CourseDetailPage courseId={activeCourseId} onBack={handleBack} />
         ) : (
           <CoursesPage onCourseDetail={handleCourseDetail} />
         );
       case "submissions":
         return <SubmissionsPage />;
+      case "fee-structures":
+        return <FeeStructuresPage />;
+      case "invoices":
+        return <InvoicesPage />;
+      case "payments":
+        return <PaymentsPage />;
+      case "expenses":
+        return <ExpensesPage />;
+      case "school-admins":
+        return <SchoolAdminsPage />;
       case "user-management":
         return <UserManagementPage />;
       case "settings":
@@ -107,6 +158,19 @@ function MainApp() {
         userProfile={userProfile ?? null}
       />
       <main className="flex-1 overflow-y-auto">
+        {canGoBack && (
+          <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
+            <button
+              type="button"
+              data-ocid="nav.back.button"
+              onClick={handleBack}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+              <span>Back</span>
+            </button>
+          </div>
+        )}
         {renderPage()}
         <footer className="text-center py-4 text-xs text-muted-foreground border-t border-border mt-8">
           &copy; {new Date().getFullYear()}. Built with{" "}

@@ -23,8 +23,11 @@ export const UserRole = IDL.Variant({
 });
 export const Body = IDL.Text;
 export const AuthorName = IDL.Text;
+export const Notes = IDL.Text;
 export const Name = IDL.Text;
 export const Subjects = IDL.Vec(IDL.Text);
+export const GradeLevel = IDL.Text;
+export const IsActive = IDL.Bool;
 export const Position = IDL.Text;
 export const DepartmentId = IDL.Text;
 export const EmploymentType = IDL.Text;
@@ -32,7 +35,6 @@ export const Salary = IDL.Nat;
 export const ContactEmail = IDL.Text;
 export const ContactPhone = IDL.Text;
 export const HireDate = IDL.Int;
-export const IsActive = IDL.Bool;
 export const Grade = IDL.Nat;
 export const ParentName = IDL.Text;
 export const EnrollmentDate = IDL.Int;
@@ -88,6 +90,19 @@ export const Announcement = IDL.Record({
   'authorName' : AuthorName,
   'timestamp' : Timestamp,
 });
+export const ApplicantId = IDL.Text;
+export const Applicant = IDL.Record({
+  'id' : ApplicantId,
+  'status' : IDL.Text,
+  'classApplied' : IDL.Text,
+  'email' : IDL.Text,
+  'dateApplied' : IDL.Int,
+  'programApplied' : IDL.Text,
+  'notes' : Notes,
+  'phone' : IDL.Text,
+  'lastName' : IDL.Text,
+  'firstName' : IDL.Text,
+});
 export const Class = IDL.Record({
   'id' : Identifier,
   'subjects' : Subjects,
@@ -99,12 +114,48 @@ export const Department = IDL.Record({
   'name' : IDL.Text,
   'description' : IDL.Text,
 });
+export const Expense = IDL.Record({
+  'id' : IDL.Text,
+  'date' : IDL.Int,
+  'approvedBy' : IDL.Text,
+  'description' : IDL.Text,
+  'category' : IDL.Text,
+  'amount' : IDL.Nat,
+});
+export const FeeId = IDL.Text;
+export const FeeStructure = IDL.Record({
+  'id' : FeeId,
+  'name' : IDL.Text,
+  'description' : IDL.Text,
+  'isActive' : IsActive,
+  'academicYear' : IDL.Text,
+  'gradeLevel' : GradeLevel,
+  'amount' : IDL.Nat,
+});
+export const Payment = IDL.Record({
+  'id' : IDL.Text,
+  'method' : IDL.Text,
+  'studentId' : Identifier,
+  'invoiceId' : IDL.Text,
+  'notes' : IDL.Text,
+  'paymentDate' : IDL.Int,
+  'amount' : IDL.Nat,
+});
 export const ResourceLink = IDL.Record({
   'id' : IDL.Text,
   'url' : IDL.Text,
   'title' : IDL.Text,
   'resourceType' : IDL.Text,
   'courseId' : IDL.Text,
+});
+export const StudentInvoice = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'studentId' : Identifier,
+  'feeStructureId' : IDL.Text,
+  'dueDate' : IDL.Int,
+  'issuedDate' : IDL.Int,
+  'amount' : IDL.Nat,
 });
 export const Assignment = IDL.Record({
   'id' : Identifier,
@@ -222,8 +273,39 @@ export const idlService = IDL.Service({
     ),
   'approveLeaveRequest' : IDL.Func([Identifier], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'convertApplicantToStudent' : IDL.Func([IDL.Text], [Identifier], []),
   'createAnnouncement' : IDL.Func([Title, Body, AuthorName], [IDL.Text], []),
+  'createApplicant' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Int,
+        IDL.Text,
+        Notes,
+      ],
+      [IDL.Text],
+      [],
+    ),
   'createClass' : IDL.Func([Name, Identifier, Subjects], [Identifier], []),
+  'createExpense' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, IDL.Int, IDL.Text],
+      [IDL.Text],
+      [],
+    ),
+  'createFeeStructure' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+      [IDL.Text],
+      [],
+    ),
+  'createPayment' : IDL.Func(
+      [IDL.Text, Identifier, IDL.Nat, IDL.Int, IDL.Text, IDL.Text],
+      [IDL.Text],
+      [],
+    ),
   'createStaff' : IDL.Func(
       [
         IDL.Text,
@@ -254,6 +336,11 @@ export const idlService = IDL.Service({
       [Identifier],
       [],
     ),
+  'createStudentInvoice' : IDL.Func(
+      [Identifier, IDL.Text, IDL.Nat, IDL.Int, IDL.Text, IDL.Int],
+      [IDL.Text],
+      [],
+    ),
   'createTeacher' : IDL.Func(
       [
         IDL.Text,
@@ -267,11 +354,16 @@ export const idlService = IDL.Service({
       [Identifier],
       [],
     ),
+  'deleteApplicant' : IDL.Func([IDL.Text], [], []),
   'deleteClass' : IDL.Func([Identifier], [], []),
   'deleteCourse' : IDL.Func([IDL.Text], [], []),
   'deleteDepartment' : IDL.Func([IDL.Text], [], []),
+  'deleteExpense' : IDL.Func([IDL.Text], [], []),
+  'deleteFeeStructure' : IDL.Func([IDL.Text], [], []),
+  'deletePayment' : IDL.Func([IDL.Text], [], []),
   'deleteStaff' : IDL.Func([Identifier], [], []),
   'deleteStudent' : IDL.Func([Identifier], [], []),
+  'deleteStudentInvoice' : IDL.Func([IDL.Text], [], []),
   'deleteTeacher' : IDL.Func([Identifier], [], []),
   'enrollStudentInClass' : IDL.Func([Identifier, IDL.Opt(Identifier)], [], []),
   'generatePayroll' : IDL.Func(
@@ -284,14 +376,25 @@ export const idlService = IDL.Service({
   'getActiveStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
   'getActiveTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
   'getAllAnnouncements' : IDL.Func([], [IDL.Vec(Announcement)], ['query']),
+  'getAllApplicants' : IDL.Func([], [IDL.Vec(Applicant)], ['query']),
   'getAllClasses' : IDL.Func([], [IDL.Vec(Class)], ['query']),
   'getAllCourses' : IDL.Func([], [IDL.Vec(Course)], ['query']),
   'getAllDepartments' : IDL.Func([], [IDL.Vec(Department)], ['query']),
+  'getAllExpenses' : IDL.Func([], [IDL.Vec(Expense)], ['query']),
+  'getAllFeeStructures' : IDL.Func([], [IDL.Vec(FeeStructure)], ['query']),
+  'getAllPayments' : IDL.Func([], [IDL.Vec(Payment)], ['query']),
   'getAllResourceLinks' : IDL.Func([], [IDL.Vec(ResourceLink)], ['query']),
   'getAllStaff' : IDL.Func([], [IDL.Vec(Staff)], ['query']),
+  'getAllStudentInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
   'getAllStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
   'getAllTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
   'getAnnouncement' : IDL.Func([IDL.Text], [Announcement], ['query']),
+  'getApplicant' : IDL.Func([IDL.Text], [Applicant], ['query']),
+  'getApplicantsByStatus' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(Applicant)],
+      ['query'],
+    ),
   'getAssignment' : IDL.Func([Identifier], [Assignment], ['query']),
   'getAssignmentsByCourse' : IDL.Func(
       [CourseId],
@@ -326,6 +429,8 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getDepartment' : IDL.Func([IDL.Text], [Department], ['query']),
+  'getExpense' : IDL.Func([IDL.Text], [Expense], ['query']),
+  'getFeeStructure' : IDL.Func([IDL.Text], [FeeStructure], ['query']),
   'getGrade' : IDL.Func([IDL.Text], [GradeRecord], ['query']),
   'getGradesByStudent' : IDL.Func(
       [Identifier],
@@ -341,6 +446,8 @@ export const idlService = IDL.Service({
     ),
   'getLesson' : IDL.Func([Identifier], [Lesson], ['query']),
   'getLessonsByCourse' : IDL.Func([CourseId], [IDL.Vec(Lesson)], ['query']),
+  'getOverdueInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
+  'getPayment' : IDL.Func([IDL.Text], [Payment], ['query']),
   'getPayrollRecord' : IDL.Func([IDL.Text], [PayrollRecord], ['query']),
   'getPayrollRecordsByStaff' : IDL.Func(
       [IDL.Text],
@@ -356,6 +463,7 @@ export const idlService = IDL.Service({
   'getSchoolProfile' : IDL.Func([], [SchoolProfile], ['query']),
   'getStaff' : IDL.Func([Identifier], [Staff], ['query']),
   'getStudent' : IDL.Func([Identifier], [Student], ['query']),
+  'getStudentInvoice' : IDL.Func([IDL.Text], [StudentInvoice], ['query']),
   'getStudentsSortedByFirstName' : IDL.Func([], [IDL.Vec(Student)], ['query']),
   'getStudentsSortedByLastName' : IDL.Func([], [IDL.Vec(Student)], ['query']),
   'getSubmission' : IDL.Func([IDL.Text], [AssignmentSubmission], ['query']),
@@ -370,6 +478,9 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getTeacher' : IDL.Func([Identifier], [Teacher], ['query']),
+  'getTotalExpenses' : IDL.Func([], [IDL.Nat], ['query']),
+  'getTotalFeesCollected' : IDL.Func([], [IDL.Nat], ['query']),
+  'getUnpaidInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -397,9 +508,41 @@ export const idlService = IDL.Service({
       [Identifier],
       [],
     ),
+  'updateApplicant' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Int,
+        IDL.Text,
+        Notes,
+      ],
+      [IDL.Text],
+      [],
+    ),
+  'updateApplicantStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'updateClass' : IDL.Func(
       [Identifier, Name, Identifier, Subjects],
       [Identifier],
+      [],
+    ),
+  'updateExpense' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Int, IDL.Text],
+      [IDL.Text],
+      [],
+    ),
+  'updateFeeStructure' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+      [IDL.Text],
+      [],
+    ),
+  'updatePayment' : IDL.Func(
+      [IDL.Text, IDL.Text, Identifier, IDL.Nat, IDL.Int, IDL.Text, IDL.Text],
+      [IDL.Text],
       [],
     ),
   'updateStaff' : IDL.Func(
@@ -432,6 +575,11 @@ export const idlService = IDL.Service({
         IsActive,
       ],
       [Identifier],
+      [],
+    ),
+  'updateStudentInvoice' : IDL.Func(
+      [IDL.Text, Identifier, IDL.Text, IDL.Nat, IDL.Int, IDL.Text, IDL.Int],
+      [IDL.Text],
       [],
     ),
   'updateTeacher' : IDL.Func(
@@ -468,8 +616,11 @@ export const idlFactory = ({ IDL }) => {
   });
   const Body = IDL.Text;
   const AuthorName = IDL.Text;
+  const Notes = IDL.Text;
   const Name = IDL.Text;
   const Subjects = IDL.Vec(IDL.Text);
+  const GradeLevel = IDL.Text;
+  const IsActive = IDL.Bool;
   const Position = IDL.Text;
   const DepartmentId = IDL.Text;
   const EmploymentType = IDL.Text;
@@ -477,7 +628,6 @@ export const idlFactory = ({ IDL }) => {
   const ContactEmail = IDL.Text;
   const ContactPhone = IDL.Text;
   const HireDate = IDL.Int;
-  const IsActive = IDL.Bool;
   const Grade = IDL.Nat;
   const ParentName = IDL.Text;
   const EnrollmentDate = IDL.Int;
@@ -533,6 +683,19 @@ export const idlFactory = ({ IDL }) => {
     'authorName' : AuthorName,
     'timestamp' : Timestamp,
   });
+  const ApplicantId = IDL.Text;
+  const Applicant = IDL.Record({
+    'id' : ApplicantId,
+    'status' : IDL.Text,
+    'classApplied' : IDL.Text,
+    'email' : IDL.Text,
+    'dateApplied' : IDL.Int,
+    'programApplied' : IDL.Text,
+    'notes' : Notes,
+    'phone' : IDL.Text,
+    'lastName' : IDL.Text,
+    'firstName' : IDL.Text,
+  });
   const Class = IDL.Record({
     'id' : Identifier,
     'subjects' : Subjects,
@@ -544,12 +707,48 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'description' : IDL.Text,
   });
+  const Expense = IDL.Record({
+    'id' : IDL.Text,
+    'date' : IDL.Int,
+    'approvedBy' : IDL.Text,
+    'description' : IDL.Text,
+    'category' : IDL.Text,
+    'amount' : IDL.Nat,
+  });
+  const FeeId = IDL.Text;
+  const FeeStructure = IDL.Record({
+    'id' : FeeId,
+    'name' : IDL.Text,
+    'description' : IDL.Text,
+    'isActive' : IsActive,
+    'academicYear' : IDL.Text,
+    'gradeLevel' : GradeLevel,
+    'amount' : IDL.Nat,
+  });
+  const Payment = IDL.Record({
+    'id' : IDL.Text,
+    'method' : IDL.Text,
+    'studentId' : Identifier,
+    'invoiceId' : IDL.Text,
+    'notes' : IDL.Text,
+    'paymentDate' : IDL.Int,
+    'amount' : IDL.Nat,
+  });
   const ResourceLink = IDL.Record({
     'id' : IDL.Text,
     'url' : IDL.Text,
     'title' : IDL.Text,
     'resourceType' : IDL.Text,
     'courseId' : IDL.Text,
+  });
+  const StudentInvoice = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'studentId' : Identifier,
+    'feeStructureId' : IDL.Text,
+    'dueDate' : IDL.Int,
+    'issuedDate' : IDL.Int,
+    'amount' : IDL.Nat,
   });
   const Assignment = IDL.Record({
     'id' : Identifier,
@@ -667,8 +866,39 @@ export const idlFactory = ({ IDL }) => {
       ),
     'approveLeaveRequest' : IDL.Func([Identifier], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'convertApplicantToStudent' : IDL.Func([IDL.Text], [Identifier], []),
     'createAnnouncement' : IDL.Func([Title, Body, AuthorName], [IDL.Text], []),
+    'createApplicant' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Int,
+          IDL.Text,
+          Notes,
+        ],
+        [IDL.Text],
+        [],
+      ),
     'createClass' : IDL.Func([Name, Identifier, Subjects], [Identifier], []),
+    'createExpense' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat, IDL.Int, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
+    'createFeeStructure' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+        [IDL.Text],
+        [],
+      ),
+    'createPayment' : IDL.Func(
+        [IDL.Text, Identifier, IDL.Nat, IDL.Int, IDL.Text, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
     'createStaff' : IDL.Func(
         [
           IDL.Text,
@@ -699,6 +929,11 @@ export const idlFactory = ({ IDL }) => {
         [Identifier],
         [],
       ),
+    'createStudentInvoice' : IDL.Func(
+        [Identifier, IDL.Text, IDL.Nat, IDL.Int, IDL.Text, IDL.Int],
+        [IDL.Text],
+        [],
+      ),
     'createTeacher' : IDL.Func(
         [
           IDL.Text,
@@ -712,11 +947,16 @@ export const idlFactory = ({ IDL }) => {
         [Identifier],
         [],
       ),
+    'deleteApplicant' : IDL.Func([IDL.Text], [], []),
     'deleteClass' : IDL.Func([Identifier], [], []),
     'deleteCourse' : IDL.Func([IDL.Text], [], []),
     'deleteDepartment' : IDL.Func([IDL.Text], [], []),
+    'deleteExpense' : IDL.Func([IDL.Text], [], []),
+    'deleteFeeStructure' : IDL.Func([IDL.Text], [], []),
+    'deletePayment' : IDL.Func([IDL.Text], [], []),
     'deleteStaff' : IDL.Func([Identifier], [], []),
     'deleteStudent' : IDL.Func([Identifier], [], []),
+    'deleteStudentInvoice' : IDL.Func([IDL.Text], [], []),
     'deleteTeacher' : IDL.Func([Identifier], [], []),
     'enrollStudentInClass' : IDL.Func(
         [Identifier, IDL.Opt(Identifier)],
@@ -733,14 +973,29 @@ export const idlFactory = ({ IDL }) => {
     'getActiveStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
     'getActiveTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
     'getAllAnnouncements' : IDL.Func([], [IDL.Vec(Announcement)], ['query']),
+    'getAllApplicants' : IDL.Func([], [IDL.Vec(Applicant)], ['query']),
     'getAllClasses' : IDL.Func([], [IDL.Vec(Class)], ['query']),
     'getAllCourses' : IDL.Func([], [IDL.Vec(Course)], ['query']),
     'getAllDepartments' : IDL.Func([], [IDL.Vec(Department)], ['query']),
+    'getAllExpenses' : IDL.Func([], [IDL.Vec(Expense)], ['query']),
+    'getAllFeeStructures' : IDL.Func([], [IDL.Vec(FeeStructure)], ['query']),
+    'getAllPayments' : IDL.Func([], [IDL.Vec(Payment)], ['query']),
     'getAllResourceLinks' : IDL.Func([], [IDL.Vec(ResourceLink)], ['query']),
     'getAllStaff' : IDL.Func([], [IDL.Vec(Staff)], ['query']),
+    'getAllStudentInvoices' : IDL.Func(
+        [],
+        [IDL.Vec(StudentInvoice)],
+        ['query'],
+      ),
     'getAllStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
     'getAllTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
     'getAnnouncement' : IDL.Func([IDL.Text], [Announcement], ['query']),
+    'getApplicant' : IDL.Func([IDL.Text], [Applicant], ['query']),
+    'getApplicantsByStatus' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(Applicant)],
+        ['query'],
+      ),
     'getAssignment' : IDL.Func([Identifier], [Assignment], ['query']),
     'getAssignmentsByCourse' : IDL.Func(
         [CourseId],
@@ -775,6 +1030,8 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getDepartment' : IDL.Func([IDL.Text], [Department], ['query']),
+    'getExpense' : IDL.Func([IDL.Text], [Expense], ['query']),
+    'getFeeStructure' : IDL.Func([IDL.Text], [FeeStructure], ['query']),
     'getGrade' : IDL.Func([IDL.Text], [GradeRecord], ['query']),
     'getGradesByStudent' : IDL.Func(
         [Identifier],
@@ -794,6 +1051,8 @@ export const idlFactory = ({ IDL }) => {
       ),
     'getLesson' : IDL.Func([Identifier], [Lesson], ['query']),
     'getLessonsByCourse' : IDL.Func([CourseId], [IDL.Vec(Lesson)], ['query']),
+    'getOverdueInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
+    'getPayment' : IDL.Func([IDL.Text], [Payment], ['query']),
     'getPayrollRecord' : IDL.Func([IDL.Text], [PayrollRecord], ['query']),
     'getPayrollRecordsByStaff' : IDL.Func(
         [IDL.Text],
@@ -813,6 +1072,7 @@ export const idlFactory = ({ IDL }) => {
     'getSchoolProfile' : IDL.Func([], [SchoolProfile], ['query']),
     'getStaff' : IDL.Func([Identifier], [Staff], ['query']),
     'getStudent' : IDL.Func([Identifier], [Student], ['query']),
+    'getStudentInvoice' : IDL.Func([IDL.Text], [StudentInvoice], ['query']),
     'getStudentsSortedByFirstName' : IDL.Func(
         [],
         [IDL.Vec(Student)],
@@ -831,6 +1091,9 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getTeacher' : IDL.Func([Identifier], [Teacher], ['query']),
+    'getTotalExpenses' : IDL.Func([], [IDL.Nat], ['query']),
+    'getTotalFeesCollected' : IDL.Func([], [IDL.Nat], ['query']),
+    'getUnpaidInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -858,9 +1121,41 @@ export const idlFactory = ({ IDL }) => {
         [Identifier],
         [],
       ),
+    'updateApplicant' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Int,
+          IDL.Text,
+          Notes,
+        ],
+        [IDL.Text],
+        [],
+      ),
+    'updateApplicantStatus' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updateClass' : IDL.Func(
         [Identifier, Name, Identifier, Subjects],
         [Identifier],
+        [],
+      ),
+    'updateExpense' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Int, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
+    'updateFeeStructure' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+        [IDL.Text],
+        [],
+      ),
+    'updatePayment' : IDL.Func(
+        [IDL.Text, IDL.Text, Identifier, IDL.Nat, IDL.Int, IDL.Text, IDL.Text],
+        [IDL.Text],
         [],
       ),
     'updateStaff' : IDL.Func(
@@ -893,6 +1188,11 @@ export const idlFactory = ({ IDL }) => {
           IsActive,
         ],
         [Identifier],
+        [],
+      ),
+    'updateStudentInvoice' : IDL.Func(
+        [IDL.Text, Identifier, IDL.Text, IDL.Nat, IDL.Int, IDL.Text, IDL.Int],
+        [IDL.Text],
         [],
       ),
     'updateTeacher' : IDL.Func(

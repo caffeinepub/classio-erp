@@ -17,6 +17,19 @@ export interface Announcement {
   'authorName' : AuthorName,
   'timestamp' : Timestamp,
 }
+export interface Applicant {
+  'id' : ApplicantId,
+  'status' : string,
+  'classApplied' : string,
+  'email' : string,
+  'dateApplied' : bigint,
+  'programApplied' : string,
+  'notes' : Notes,
+  'phone' : string,
+  'lastName' : string,
+  'firstName' : string,
+}
+export type ApplicantId = string;
 export interface Assignment {
   'id' : Identifier,
   'title' : Title,
@@ -79,7 +92,26 @@ export type DueDate = bigint;
 export type EmploymentType = string;
 export type EndDate = bigint;
 export type EnrollmentDate = bigint;
+export interface Expense {
+  'id' : string,
+  'date' : bigint,
+  'approvedBy' : string,
+  'description' : string,
+  'category' : string,
+  'amount' : bigint,
+}
+export type FeeId = string;
+export interface FeeStructure {
+  'id' : FeeId,
+  'name' : string,
+  'description' : string,
+  'isActive' : IsActive,
+  'academicYear' : string,
+  'gradeLevel' : GradeLevel,
+  'amount' : bigint,
+}
 export type Grade = bigint;
+export type GradeLevel = string;
 export interface GradeRecord {
   'studentId' : Identifier,
   'subject' : Subject,
@@ -110,8 +142,18 @@ export interface Lesson {
 }
 export type MaxScore = bigint;
 export type Name = string;
+export type Notes = string;
 export type OrderIndex = bigint;
 export type ParentName = string;
+export interface Payment {
+  'id' : string,
+  'method' : string,
+  'studentId' : Identifier,
+  'invoiceId' : string,
+  'notes' : string,
+  'paymentDate' : bigint,
+  'amount' : bigint,
+}
 export interface PayrollRecord {
   'id' : string,
   'month' : bigint,
@@ -169,6 +211,15 @@ export interface Student {
   'contactPhone' : ContactPhone,
   'firstName' : string,
 }
+export interface StudentInvoice {
+  'id' : string,
+  'status' : string,
+  'studentId' : Identifier,
+  'feeStructureId' : string,
+  'dueDate' : bigint,
+  'issuedDate' : bigint,
+  'amount' : bigint,
+}
 export type Subject = string;
 export type Subjects = Array<string>;
 export interface Teacher {
@@ -210,8 +261,25 @@ export interface _SERVICE {
   'addResourceLink' : ActorMethod<[string, string, string, string], string>,
   'approveLeaveRequest' : ActorMethod<[Identifier], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'convertApplicantToStudent' : ActorMethod<[string], Identifier>,
   'createAnnouncement' : ActorMethod<[Title, Body, AuthorName], string>,
+  'createApplicant' : ActorMethod<
+    [string, string, string, string, string, string, bigint, string, Notes],
+    string
+  >,
   'createClass' : ActorMethod<[Name, Identifier, Subjects], Identifier>,
+  'createExpense' : ActorMethod<
+    [string, string, bigint, bigint, string],
+    string
+  >,
+  'createFeeStructure' : ActorMethod<
+    [string, string, bigint, GradeLevel, string, IsActive],
+    string
+  >,
+  'createPayment' : ActorMethod<
+    [string, Identifier, bigint, bigint, string, string],
+    string
+  >,
   'createStaff' : ActorMethod<
     [
       string,
@@ -240,6 +308,10 @@ export interface _SERVICE {
     ],
     Identifier
   >,
+  'createStudentInvoice' : ActorMethod<
+    [Identifier, string, bigint, bigint, string, bigint],
+    string
+  >,
   'createTeacher' : ActorMethod<
     [
       string,
@@ -252,11 +324,16 @@ export interface _SERVICE {
     ],
     Identifier
   >,
+  'deleteApplicant' : ActorMethod<[string], undefined>,
   'deleteClass' : ActorMethod<[Identifier], undefined>,
   'deleteCourse' : ActorMethod<[string], undefined>,
   'deleteDepartment' : ActorMethod<[string], undefined>,
+  'deleteExpense' : ActorMethod<[string], undefined>,
+  'deleteFeeStructure' : ActorMethod<[string], undefined>,
+  'deletePayment' : ActorMethod<[string], undefined>,
   'deleteStaff' : ActorMethod<[Identifier], undefined>,
   'deleteStudent' : ActorMethod<[Identifier], undefined>,
+  'deleteStudentInvoice' : ActorMethod<[string], undefined>,
   'deleteTeacher' : ActorMethod<[Identifier], undefined>,
   'enrollStudentInClass' : ActorMethod<
     [Identifier, [] | [Identifier]],
@@ -271,14 +348,21 @@ export interface _SERVICE {
   'getActiveStudents' : ActorMethod<[], Array<Student>>,
   'getActiveTeachers' : ActorMethod<[], Array<Teacher>>,
   'getAllAnnouncements' : ActorMethod<[], Array<Announcement>>,
+  'getAllApplicants' : ActorMethod<[], Array<Applicant>>,
   'getAllClasses' : ActorMethod<[], Array<Class>>,
   'getAllCourses' : ActorMethod<[], Array<Course>>,
   'getAllDepartments' : ActorMethod<[], Array<Department>>,
+  'getAllExpenses' : ActorMethod<[], Array<Expense>>,
+  'getAllFeeStructures' : ActorMethod<[], Array<FeeStructure>>,
+  'getAllPayments' : ActorMethod<[], Array<Payment>>,
   'getAllResourceLinks' : ActorMethod<[], Array<ResourceLink>>,
   'getAllStaff' : ActorMethod<[], Array<Staff>>,
+  'getAllStudentInvoices' : ActorMethod<[], Array<StudentInvoice>>,
   'getAllStudents' : ActorMethod<[], Array<Student>>,
   'getAllTeachers' : ActorMethod<[], Array<Teacher>>,
   'getAnnouncement' : ActorMethod<[string], Announcement>,
+  'getApplicant' : ActorMethod<[string], Applicant>,
+  'getApplicantsByStatus' : ActorMethod<[string], Array<Applicant>>,
   'getAssignment' : ActorMethod<[Identifier], Assignment>,
   'getAssignmentsByCourse' : ActorMethod<[CourseId], Array<Assignment>>,
   'getAttendance' : ActorMethod<[string], Array<AttendanceRecord>>,
@@ -301,6 +385,8 @@ export interface _SERVICE {
     }
   >,
   'getDepartment' : ActorMethod<[string], Department>,
+  'getExpense' : ActorMethod<[string], Expense>,
+  'getFeeStructure' : ActorMethod<[string], FeeStructure>,
   'getGrade' : ActorMethod<[string], GradeRecord>,
   'getGradesByStudent' : ActorMethod<[Identifier], Array<GradeRecord>>,
   'getGradesBySubject' : ActorMethod<[Subject], Array<GradeRecord>>,
@@ -308,6 +394,8 @@ export interface _SERVICE {
   'getLeaveRequestsByStaff' : ActorMethod<[string], Array<LeaveRequest>>,
   'getLesson' : ActorMethod<[Identifier], Lesson>,
   'getLessonsByCourse' : ActorMethod<[CourseId], Array<Lesson>>,
+  'getOverdueInvoices' : ActorMethod<[], Array<StudentInvoice>>,
+  'getPayment' : ActorMethod<[string], Payment>,
   'getPayrollRecord' : ActorMethod<[string], PayrollRecord>,
   'getPayrollRecordsByStaff' : ActorMethod<[string], Array<PayrollRecord>>,
   'getPendingLeaveRequests' : ActorMethod<[], Array<LeaveRequest>>,
@@ -315,6 +403,7 @@ export interface _SERVICE {
   'getSchoolProfile' : ActorMethod<[], SchoolProfile>,
   'getStaff' : ActorMethod<[Identifier], Staff>,
   'getStudent' : ActorMethod<[Identifier], Student>,
+  'getStudentInvoice' : ActorMethod<[string], StudentInvoice>,
   'getStudentsSortedByFirstName' : ActorMethod<[], Array<Student>>,
   'getStudentsSortedByLastName' : ActorMethod<[], Array<Student>>,
   'getSubmission' : ActorMethod<[string], AssignmentSubmission>,
@@ -327,6 +416,9 @@ export interface _SERVICE {
     Array<AssignmentSubmission>
   >,
   'getTeacher' : ActorMethod<[Identifier], Teacher>,
+  'getTotalExpenses' : ActorMethod<[], bigint>,
+  'getTotalFeesCollected' : ActorMethod<[], bigint>,
+  'getUnpaidInvoices' : ActorMethod<[], Array<StudentInvoice>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'gradeSubmission' : ActorMethod<[string, bigint, string], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
@@ -344,9 +436,37 @@ export interface _SERVICE {
     [StaffId, LeaveType, StartDate, EndDate, Reason],
     Identifier
   >,
+  'updateApplicant' : ActorMethod<
+    [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      bigint,
+      string,
+      Notes,
+    ],
+    string
+  >,
+  'updateApplicantStatus' : ActorMethod<[string, string], undefined>,
   'updateClass' : ActorMethod<
     [Identifier, Name, Identifier, Subjects],
     Identifier
+  >,
+  'updateExpense' : ActorMethod<
+    [string, string, string, bigint, bigint, string],
+    string
+  >,
+  'updateFeeStructure' : ActorMethod<
+    [string, string, string, bigint, GradeLevel, string, IsActive],
+    string
+  >,
+  'updatePayment' : ActorMethod<
+    [string, string, Identifier, bigint, bigint, string, string],
+    string
   >,
   'updateStaff' : ActorMethod<
     [
@@ -377,6 +497,10 @@ export interface _SERVICE {
       IsActive,
     ],
     Identifier
+  >,
+  'updateStudentInvoice' : ActorMethod<
+    [string, Identifier, string, bigint, bigint, string, bigint],
+    string
   >,
   'updateTeacher' : ActorMethod<
     [

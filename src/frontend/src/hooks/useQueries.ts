@@ -953,3 +953,377 @@ export function useAddResourceLink() {
       qc.invalidateQueries({ queryKey: ["resources", vars.courseId] }),
   });
 }
+
+// ── Admissions ─────────────────────────────────────────────────────────────
+export function useAllApplicants() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["applicants"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllApplicants();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateApplicant() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      programApplied: string;
+      classApplied: string;
+      dateApplied: bigint;
+      status: string;
+      notes: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.createApplicant(
+        data.firstName,
+        data.lastName,
+        data.email,
+        data.phone,
+        data.programApplied,
+        data.classApplied,
+        data.dateApplied,
+        data.status,
+        data.notes,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["applicants"] }),
+  });
+}
+
+export function useUpdateApplicantStatus() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { id: string; status: string }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.updateApplicantStatus(data.id, data.status);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["applicants"] }),
+  });
+}
+
+export function useConvertApplicantToStudent() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (applicantId: string) => {
+      if (!actor) throw new Error("No actor");
+      return actor.convertApplicantToStudent(applicantId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["applicants"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+    },
+  });
+}
+
+// ── Fee Structures ─────────────────────────────────────────────────────────
+export function useAllFeeStructures() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["feeStructures"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllFeeStructures();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateFeeStructure() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      description: string;
+      amount: bigint;
+      gradeLevel: string;
+      academicYear: string;
+      isActive: boolean;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.createFeeStructure(
+        data.name,
+        data.description,
+        data.amount,
+        data.gradeLevel,
+        data.academicYear,
+        data.isActive,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["feeStructures"] }),
+  });
+}
+
+export function useUpdateFeeStructure() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      id: string;
+      name: string;
+      description: string;
+      amount: bigint;
+      gradeLevel: string;
+      academicYear: string;
+      isActive: boolean;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.updateFeeStructure(
+        data.id,
+        data.name,
+        data.description,
+        data.amount,
+        data.gradeLevel,
+        data.academicYear,
+        data.isActive,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["feeStructures"] }),
+  });
+}
+
+export function useDeleteFeeStructure() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => {
+      if (!actor) throw new Error("No actor");
+      return actor.deleteFeeStructure(id);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["feeStructures"] }),
+  });
+}
+
+// ── Invoices ───────────────────────────────────────────────────────────────
+export function useAllStudentInvoices() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["invoices"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllStudentInvoices();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateStudentInvoice() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      studentId: string;
+      feeStructureId: string;
+      amount: bigint;
+      dueDate: bigint;
+      status: string;
+      issuedDate: bigint;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.createStudentInvoice(
+        data.studentId,
+        data.feeStructureId,
+        data.amount,
+        data.dueDate,
+        data.status,
+        data.issuedDate,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+}
+
+export function useUpdateStudentInvoice() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      id: string;
+      studentId: string;
+      feeStructureId: string;
+      amount: bigint;
+      dueDate: bigint;
+      status: string;
+      issuedDate: bigint;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.updateStudentInvoice(
+        data.id,
+        data.studentId,
+        data.feeStructureId,
+        data.amount,
+        data.dueDate,
+        data.status,
+        data.issuedDate,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+}
+
+export function useUnpaidInvoices() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["invoices", "unpaid"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getUnpaidInvoices();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// ── Payments ───────────────────────────────────────────────────────────────
+export function useAllPayments() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["payments"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllPayments();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreatePayment() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      invoiceId: string;
+      studentId: string;
+      amount: bigint;
+      paymentDate: bigint;
+      method: string;
+      notes: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.createPayment(
+        data.invoiceId,
+        data.studentId,
+        data.amount,
+        data.paymentDate,
+        data.method,
+        data.notes,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["totalFeesCollected"] });
+    },
+  });
+}
+
+export function useTotalFeesCollected() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["totalFeesCollected"],
+    queryFn: async () => {
+      if (!actor) return BigInt(0);
+      return actor.getTotalFeesCollected();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// ── Expenses ───────────────────────────────────────────────────────────────
+export function useAllExpenses() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["expenses"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllExpenses();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateExpense() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      category: string;
+      description: string;
+      amount: bigint;
+      date: bigint;
+      approvedBy: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.createExpense(
+        data.category,
+        data.description,
+        data.amount,
+        data.date,
+        data.approvedBy,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["totalExpenses"] });
+    },
+  });
+}
+
+export function useUpdateExpense() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      id: string;
+      category: string;
+      description: string;
+      amount: bigint;
+      date: bigint;
+      approvedBy: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.updateExpense(
+        data.id,
+        data.category,
+        data.description,
+        data.amount,
+        data.date,
+        data.approvedBy,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses"] }),
+  });
+}
+
+export function useDeleteExpense() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => {
+      if (!actor) throw new Error("No actor");
+      return actor.deleteExpense(id);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses"] }),
+  });
+}
+
+export function useTotalExpenses() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["totalExpenses"],
+    queryFn: async () => {
+      if (!actor) return BigInt(0);
+      return actor.getTotalExpenses();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}

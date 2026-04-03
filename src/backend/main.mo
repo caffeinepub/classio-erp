@@ -1,5 +1,6 @@
 import Array "mo:core/Array";
 import Map "mo:core/Map";
+import Nat "mo:core/Nat";
 import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
@@ -10,48 +11,16 @@ import Time "mo:core/Time";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
+
+
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // Helper methods
-  func getCallerProfile(caller : Principal) : ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized");
-    };
-    userProfiles.get(caller);
-  };
-  func getCallerProfileOrReject(caller : Principal) : UserProfile {
-    switch (getCallerProfile(caller)) {
-      case (null) { Runtime.trap("No profile found") };
-      case (?profile) { profile };
-    };
-  };
-
-  func getElem<T>(map : Map.Map<Text, T>, index : Text) : T {
-    switch (map.get(index)) {
-      case (null) { Runtime.trap("No entry found") };
-      case (?t) { t };
-    };
-  };
-
-  func tryGetElem<T>(map : Map.Map<Text, T>, index : Text) : ?T {
-    map.get(index);
-  };
-
-  func ifAdmin<T>(caller : Principal, t : T) : ?T {
-    if (AccessControl.isAdmin(accessControlState, caller)) {
-      ?t;
-    } else {
-      null;
-    };
-  };
-
-  // User profile type required by frontend
-  public type UserProfile = {
+  type UserProfile = {
     name : Text;
     role : Text; // "admin", "hr", "teacher", "student"
-    linkedId : ?Text; // Links to teacher/student/staff ID
+    linkedId : ?Text;
   };
 
   let userProfiles = Map.empty<Principal, UserProfile>();
@@ -96,6 +65,17 @@ actor {
         }
       };
     };
+  };
+
+  func getElem<T>(map : Map.Map<Text, T>, index : Text) : T {
+    switch (map.get(index)) {
+      case (null) { Runtime.trap("No entry found") };
+      case (?t) { t };
+    };
+  };
+
+  func tryGetElem<T>(map : Map.Map<Text, T>, index : Text) : ?T {
+    map.get(index);
   };
 
   module Student {
@@ -1336,6 +1316,528 @@ actor {
       Runtime.trap("Unauthorized: Only teachers and above can view all resource links");
     };
     resourceLinks.values().toArray();
+  };
+
+  // ============================================
+  // ADMISSION MANAGEMENT MODULE
+  // ============================================
+  module Admission {
+    public type Timestamp = Int;
+    public type ApplicantId = Text;
+    public type Status = Text;
+    public type Notes = Text;
+  };
+  type Applicant = {
+    id : Admission.ApplicantId;
+    firstName : Text;
+    lastName : Text;
+    email : Text;
+    phone : Text;
+    programApplied : Text;
+    classApplied : Text;
+    dateApplied : Int;
+    status : Text;
+    notes : Admission.Notes;
+  };
+  let applicants = Map.empty<Text, Applicant>();
+
+  public shared ({ caller }) func createApplicant(
+    firstName : Text,
+    lastName : Text,
+    email : Text,
+    phone : Text,
+    programApplied : Text,
+    classApplied : Text,
+    dateApplied : Int,
+    status : Text,
+    notes : Admission.Notes,
+  ) : async Text {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can create applicants");
+    };
+    let newApplicant : Applicant = {
+      id = firstName # lastName # dateApplied.toText();
+      firstName;
+      lastName;
+      email;
+      phone;
+      programApplied;
+      classApplied;
+      dateApplied;
+      status;
+      notes;
+    };
+    applicants.add(newApplicant.id, newApplicant);
+    newApplicant.id;
+  };
+
+  public shared ({ caller }) func updateApplicant(
+    id : Text,
+    firstName : Text,
+    lastName : Text,
+    email : Text,
+    phone : Text,
+    programApplied : Text,
+    classApplied : Text,
+    dateApplied : Int,
+    status : Text,
+    notes : Admission.Notes,
+  ) : async Text {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update applicants");
+    };
+    let updatedApplicant = {
+      id;
+      firstName;
+      lastName;
+      email;
+      phone;
+      programApplied;
+      classApplied;
+      dateApplied;
+      status;
+      notes;
+    };
+    applicants.add(id, updatedApplicant);
+    id;
+  };
+
+  public query ({ caller }) func getApplicant(id : Text) : async Applicant {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view applicants");
+    };
+    getElem(applicants, id);
+  };
+
+  public query ({ caller }) func getAllApplicants() : async [Applicant] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view applicants");
+    };
+    applicants.values().toArray();
+  };
+
+  public query ({ caller }) func getApplicantsByStatus(status : Text) : async [Applicant] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view applicants");
+    };
+    applicants.values().toArray().filter(func(a) { a.status == status });
+  };
+
+  public shared ({ caller }) func updateApplicantStatus(id : Text, status : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update applicant status");
+    };
+    let applicant = getElem(applicants, id);
+    let updatedApplicant = {
+      applicant with status = status;
+    };
+    applicants.add(id, updatedApplicant);
+  };
+
+  public shared ({ caller }) func deleteApplicant(id : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete applicants");
+    };
+    applicants.remove(id);
+  };
+
+  public shared ({ caller }) func convertApplicantToStudent(applicantId : Text) : async Student.Identifier {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can convert applicants to students");
+    };
+
+    switch (applicants.get(applicantId)) {
+      case (null) { Runtime.trap("Applicant not found") };
+      case (?applicant) {
+        if (applicant.status != "accepted") {
+          Runtime.trap("Only accepted applicants can be converted to students");
+        };
+        let newStudent : Student = {
+          id = applicant.id;
+          firstName = applicant.firstName;
+          lastName = applicant.lastName;
+          grade = 0;
+          contactEmail = applicant.email;
+          contactPhone = applicant.phone;
+          parentName = "";
+          enrollmentDate = Time.now();
+          isActive = true;
+        };
+        students.add(newStudent.id, newStudent);
+        applicants.remove(applicantId);
+        newStudent.id;
+      };
+    };
+  };
+
+  // ============================================
+  // ACCOUNT/FINANCE MANAGEMENT MODULE
+  // ============================================
+  module Finance {
+    public type Timestamp = Int;
+    public type FeeId = Text;
+    public type InvoiceId = Text;
+    public type PaymentId = Text;
+    public type ExpenseId = Text;
+    public type GradeLevel = Text;
+    public type Year = Text;
+    public type IsActive = Bool;
+  };
+
+  type FeeStructure = {
+    id : Finance.FeeId;
+    name : Text;
+    description : Text;
+    amount : Nat;
+    gradeLevel : Finance.GradeLevel;
+    academicYear : Text;
+    isActive : Finance.IsActive;
+  };
+  let feeStructures = Map.empty<Text, FeeStructure>();
+
+  public shared ({ caller }) func createFeeStructure(
+    name : Text,
+    description : Text,
+    amount : Nat,
+    gradeLevel : Finance.GradeLevel,
+    academicYear : Text,
+    isActive : Finance.IsActive,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create fee structures");
+    };
+    let newFeeStructure : FeeStructure = {
+      id = name # gradeLevel # academicYear;
+      name;
+      description;
+      amount;
+      gradeLevel;
+      academicYear;
+      isActive;
+    };
+    feeStructures.add(newFeeStructure.id, newFeeStructure);
+    newFeeStructure.id;
+  };
+
+  public shared ({ caller }) func updateFeeStructure(
+    id : Text,
+    name : Text,
+    description : Text,
+    amount : Nat,
+    gradeLevel : Finance.GradeLevel,
+    academicYear : Text,
+    isActive : Finance.IsActive,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update fee structures");
+    };
+    let updatedFeeStructure : FeeStructure = {
+      id;
+      name;
+      description;
+      amount;
+      gradeLevel;
+      academicYear;
+      isActive;
+    };
+    feeStructures.add(id, updatedFeeStructure);
+    id;
+  };
+
+  public query ({ caller }) func getFeeStructure(id : Text) : async FeeStructure {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view fee structures");
+    };
+    getElem(feeStructures, id);
+  };
+
+  public query ({ caller }) func getAllFeeStructures() : async [FeeStructure] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view fee structures");
+    };
+    feeStructures.values().toArray();
+  };
+
+  public shared ({ caller }) func deleteFeeStructure(id : Text) : async () {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete fee structures");
+    };
+    feeStructures.remove(id);
+  };
+
+  type StudentInvoice = {
+    id : Text;
+    studentId : Student.Identifier;
+    feeStructureId : Text;
+    amount : Nat;
+    dueDate : Int;
+    status : Text;
+    issuedDate : Int;
+  };
+  let studentInvoices = Map.empty<Text, StudentInvoice>();
+
+  public shared ({ caller }) func createStudentInvoice(
+    studentId : Student.Identifier,
+    feeStructureId : Text,
+    amount : Nat,
+    dueDate : Int,
+    status : Text,
+    issuedDate : Int,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create student invoices");
+    };
+    let newInvoice : StudentInvoice = {
+      id = studentId # feeStructureId # issuedDate.toText();
+      studentId;
+      feeStructureId;
+      amount;
+      dueDate;
+      status;
+      issuedDate;
+    };
+    studentInvoices.add(newInvoice.id, newInvoice);
+    newInvoice.id;
+  };
+
+  public shared ({ caller }) func updateStudentInvoice(
+    id : Text,
+    studentId : Student.Identifier,
+    feeStructureId : Text,
+    amount : Nat,
+    dueDate : Int,
+    status : Text,
+    issuedDate : Int,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update student invoices");
+    };
+    let updatedInvoice : StudentInvoice = {
+      id;
+      studentId;
+      feeStructureId;
+      amount;
+      dueDate;
+      status;
+      issuedDate;
+    };
+    studentInvoices.add(id, updatedInvoice);
+    id;
+  };
+
+  public query ({ caller }) func getStudentInvoice(id : Text) : async StudentInvoice {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view invoices");
+    };
+    getElem(studentInvoices, id);
+  };
+
+  public query ({ caller }) func getAllStudentInvoices() : async [StudentInvoice] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view invoices");
+    };
+    studentInvoices.values().toArray();
+  };
+
+  public shared ({ caller }) func deleteStudentInvoice(id : Text) : async () {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete student invoices");
+    };
+    studentInvoices.remove(id);
+  };
+
+  type Payment = {
+    id : Text;
+    invoiceId : Text;
+    studentId : Student.Identifier;
+    amount : Nat;
+    paymentDate : Int;
+    method : Text;
+    notes : Text;
+  };
+  let payments = Map.empty<Text, Payment>();
+
+  public shared ({ caller }) func createPayment(
+    invoiceId : Text,
+    studentId : Student.Identifier,
+    amount : Nat,
+    paymentDate : Int,
+    method : Text,
+    notes : Text,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create payments");
+    };
+    let newPayment : Payment = {
+      id = invoiceId # studentId # paymentDate.toText();
+      invoiceId;
+      studentId;
+      amount;
+      paymentDate;
+      method;
+      notes;
+    };
+    payments.add(newPayment.id, newPayment);
+    newPayment.id;
+  };
+
+  public shared ({ caller }) func updatePayment(
+    id : Text,
+    invoiceId : Text,
+    studentId : Student.Identifier,
+    amount : Nat,
+    paymentDate : Int,
+    method : Text,
+    notes : Text,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update payments");
+    };
+    let updatedPayment : Payment = {
+      id;
+      invoiceId;
+      studentId;
+      amount;
+      paymentDate;
+      method;
+      notes;
+    };
+    payments.add(id, updatedPayment);
+    id;
+  };
+
+  public query ({ caller }) func getPayment(id : Text) : async Payment {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view payments");
+    };
+    getElem(payments, id);
+  };
+
+  public query ({ caller }) func getAllPayments() : async [Payment] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view payments");
+    };
+    payments.values().toArray();
+  };
+
+  public shared ({ caller }) func deletePayment(id : Text) : async () {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete payments");
+    };
+    payments.remove(id);
+  };
+
+  type Expense = {
+    id : Text;
+    category : Text;
+    description : Text;
+    amount : Nat;
+    date : Int;
+    approvedBy : Text;
+  };
+  let expenses = Map.empty<Text, Expense>();
+
+  public shared ({ caller }) func createExpense(
+    category : Text,
+    description : Text,
+    amount : Nat,
+    date : Int,
+    approvedBy : Text,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create expenses");
+    };
+    let newExpense : Expense = {
+      id = category # date.toText();
+      category;
+      description;
+      amount;
+      date;
+      approvedBy;
+    };
+    expenses.add(newExpense.id, newExpense);
+    newExpense.id;
+  };
+
+  public shared ({ caller }) func updateExpense(
+    id : Text,
+    category : Text,
+    description : Text,
+    amount : Nat,
+    date : Int,
+    approvedBy : Text,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update expenses");
+    };
+    let updatedExpense : Expense = {
+      id;
+      category;
+      description;
+      amount;
+      date;
+      approvedBy;
+    };
+    expenses.add(id, updatedExpense);
+    id;
+  };
+
+  public query ({ caller }) func getExpense(id : Text) : async Expense {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view expenses");
+    };
+    getElem(expenses, id);
+  };
+
+  public query ({ caller }) func getAllExpenses() : async [Expense] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view expenses");
+    };
+    expenses.values().toArray();
+  };
+
+  public shared ({ caller }) func deleteExpense(id : Text) : async () {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete expenses");
+    };
+    expenses.remove(id);
+  };
+
+  // Finance summary queries
+  public query ({ caller }) func getTotalFeesCollected() : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view finance summaries");
+    };
+    var total : Nat = 0;
+    for (payment in payments.values()) {
+      total += payment.amount;
+    };
+    total;
+  };
+
+  public query ({ caller }) func getTotalExpenses() : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view finance summaries");
+    };
+    var total : Nat = 0;
+    for (expense in expenses.values()) {
+      total += expense.amount;
+    };
+    total;
+  };
+
+  public query ({ caller }) func getUnpaidInvoices() : async [StudentInvoice] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view unpaid invoices");
+    };
+    studentInvoices.values().toArray().filter(func(inv) { inv.status == "unpaid" });
+  };
+
+  public query ({ caller }) func getOverdueInvoices() : async [StudentInvoice] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view overdue invoices");
+    };
+    studentInvoices.values().toArray().filter(func(inv) { inv.status == "overdue" });
   };
 
   public query ({ caller }) func getDashboardStats() : async {

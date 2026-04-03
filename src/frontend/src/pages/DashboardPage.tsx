@@ -1,17 +1,45 @@
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Bell,
   Building2,
   GraduationCap,
+  IndianRupee,
   Library,
   Loader2,
   UserCog,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { EmptyState, PageHeader, StatsCard } from "../components/shared";
-import { useAllAnnouncements, useDashboardStats } from "../hooks/useQueries";
+import {
+  useAllAnnouncements,
+  useAllApplicants,
+  useCallerRole,
+  useDashboardStats,
+  useTotalFeesCollected,
+} from "../hooks/useQueries";
+import { formatINR } from "../utils/currencyUtils";
 import { bigIntToDateString } from "../utils/dateUtils";
+
+function getRoleLabel(role: any): string {
+  if (!role) return "User";
+  if (typeof role === "object") {
+    const key = Object.keys(role)[0];
+    if (!key) return "User";
+    const map: Record<string, string> = {
+      superAdmin: "Super Admin",
+      schoolAdmin: "School Admin",
+      teacher: "Teacher",
+      hrManager: "HR Manager",
+      student: "Student",
+      user: "User",
+    };
+    return map[key] ?? key;
+  }
+  return String(role);
+}
 
 export default function DashboardPage({
   onNavigate,
@@ -21,6 +49,15 @@ export default function DashboardPage({
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: announcements, isLoading: announcementsLoading } =
     useAllAnnouncements();
+  const { data: applicants = [] } = useAllApplicants();
+  const { data: totalFeesCollected = BigInt(0) } = useTotalFeesCollected();
+  const { data: callerRole } = useCallerRole();
+
+  const pendingAdmissions = (applicants as any[]).filter(
+    (a: any) => a.status === "pending",
+  ).length;
+
+  const roleLabel = getRoleLabel(callerRole);
 
   const quickActions = [
     { label: "Add Student", page: "students", color: "bg-blue-500" },
@@ -31,20 +68,66 @@ export default function DashboardPage({
       page: "announcements",
       color: "bg-purple-500",
     },
-    { label: "Add Course", page: "courses", color: "bg-teal-500" },
-    { label: "Manage Staff", page: "staff", color: "bg-indigo-500" },
+    { label: "New Admission", page: "admissions", color: "bg-amber-500" },
+    { label: "Fee Structures", page: "fee-structures", color: "bg-teal-500" },
   ];
 
   return (
     <div className="p-6 max-w-7xl mx-auto animate-fade-in">
+      {/* Welcome Banner with Logo */}
+      <motion.div
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="mb-6 rounded-xl overflow-hidden relative"
+        data-ocid="dashboard.welcome.card"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-sidebar via-sidebar/90 to-sidebar-primary/40 pointer-events-none" />
+        <div className="relative flex items-center gap-5 p-6 border border-sidebar-border/40 rounded-xl">
+          <div className="relative shrink-0">
+            <div className="absolute inset-0 rounded-xl bg-sidebar-primary/40 blur-lg scale-110" />
+            <img
+              src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
+              alt="Classio ERP"
+              className="relative w-20 h-20 rounded-xl object-cover shadow-lg border-2 border-sidebar-primary/60"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-sidebar-foreground leading-tight">
+                Classio ERP
+              </h1>
+              {callerRole && (
+                <Badge
+                  className="bg-sidebar-primary/20 text-sidebar-primary border border-sidebar-primary/40 text-xs font-semibold"
+                  variant="outline"
+                >
+                  {roleLabel}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sidebar-foreground/60 text-sm mt-1">
+              School Management System
+            </p>
+            <p className="text-sidebar-foreground/40 text-xs mt-0.5">
+              Logged in as:{" "}
+              <span className="text-sidebar-foreground/70 font-medium">
+                {roleLabel}
+              </span>
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
       <PageHeader
         title="Dashboard"
         description="Welcome back! Here's an overview of your school."
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
         <motion.div
+          className="lg:col-span-1"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0 }}
@@ -58,6 +141,7 @@ export default function DashboardPage({
           />
         </motion.div>
         <motion.div
+          className="lg:col-span-1"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
@@ -71,6 +155,7 @@ export default function DashboardPage({
           />
         </motion.div>
         <motion.div
+          className="lg:col-span-1"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -84,6 +169,7 @@ export default function DashboardPage({
           />
         </motion.div>
         <motion.div
+          className="lg:col-span-1"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
@@ -97,6 +183,7 @@ export default function DashboardPage({
           />
         </motion.div>
         <motion.div
+          className="lg:col-span-1"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -107,6 +194,34 @@ export default function DashboardPage({
             icon={Library}
             color="red"
             isLoading={statsLoading}
+          />
+        </motion.div>
+        <motion.div
+          className="lg:col-span-1"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <StatsCard
+            title="Pending Admissions"
+            value={pendingAdmissions}
+            icon={UserPlus}
+            color="orange"
+            isLoading={false}
+          />
+        </motion.div>
+        <motion.div
+          className="lg:col-span-1"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <StatsCard
+            title="Fees Collected"
+            value={formatINR(totalFeesCollected)}
+            icon={IndianRupee}
+            color="green"
+            isLoading={false}
           />
         </motion.div>
       </div>

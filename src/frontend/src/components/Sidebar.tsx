@@ -8,15 +8,19 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
-  DollarSign,
+  CreditCard,
   FileText,
   GraduationCap,
   LayoutDashboard,
   Library,
   LogOut,
   Megaphone,
+  Receipt,
   Settings,
+  ShieldCheck,
+  TrendingDown,
   UserCog,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -33,6 +37,14 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  // Admissions
+  {
+    id: "admissions",
+    label: "Admissions",
+    icon: UserPlus,
+    section: "Admissions",
+  },
+  // Academic
   { id: "students", label: "Students", icon: Users, section: "Academic" },
   {
     id: "teachers",
@@ -48,12 +60,24 @@ const navItems: NavItem[] = [
     section: "Academic",
   },
   { id: "grades", label: "Grades", icon: BarChart3, section: "Academic" },
+  // Finance
+  {
+    id: "fee-structures",
+    label: "Fee Structures",
+    icon: Receipt,
+    section: "Finance",
+  },
+  { id: "invoices", label: "Invoices", icon: FileText, section: "Finance" },
+  { id: "payments", label: "Payments", icon: CreditCard, section: "Finance" },
+  { id: "expenses", label: "Expenses", icon: TrendingDown, section: "Finance" },
+  // Communication
   {
     id: "announcements",
     label: "Announcements",
     icon: Megaphone,
     section: "Communication",
   },
+  // HR
   { id: "staff", label: "Staff", icon: UserCog, section: "HR Management" },
   {
     id: "departments",
@@ -70,9 +94,10 @@ const navItems: NavItem[] = [
   {
     id: "payroll",
     label: "Payroll",
-    icon: DollarSign,
+    icon: CreditCard,
     section: "HR Management",
   },
+  // LMS
   { id: "courses", label: "Courses", icon: Library, section: "LMS" },
   {
     id: "submissions",
@@ -80,6 +105,7 @@ const navItems: NavItem[] = [
     icon: ClipboardList,
     section: "LMS",
   },
+  // Administration
   {
     id: "user-management",
     label: "User Management",
@@ -92,14 +118,24 @@ const navItems: NavItem[] = [
     icon: Settings,
     section: "Administration",
   },
+  // Super Admin
+  {
+    id: "school-admins",
+    label: "School Admins",
+    icon: ShieldCheck,
+    section: "Super Admin",
+  },
 ];
 
 const sections = [
+  "Admissions",
   "Academic",
+  "Finance",
   "Communication",
   "HR Management",
   "LMS",
   "Administration",
+  "Super Admin",
 ];
 
 type SidebarProps = {
@@ -125,9 +161,36 @@ function NavSection({
   onToggle: () => void;
   userRole: string | null;
 }) {
-  // Filter admin-only items
+  const adminRoles = ["admin", "superadmin"];
+  const schoolAdminRoles = ["admin", "superadmin", "schooladmin"];
+  const hrRoles = ["admin", "superadmin", "schooladmin", "hr"];
+
+  // Section visibility
+  const isSectionVisible = () => {
+    switch (title) {
+      case "Super Admin":
+        return userRole === "admin" || userRole === "superadmin";
+      case "Admissions":
+      case "Finance":
+        return hrRoles.includes(userRole ?? "");
+      case "Academic":
+        return (
+          schoolAdminRoles.includes(userRole ?? "") || userRole === "teacher"
+        );
+      case "HR Management":
+        return hrRoles.includes(userRole ?? "");
+      case "Administration":
+        return schoolAdminRoles.includes(userRole ?? "");
+      default:
+        return true;
+    }
+  };
+
+  if (!isSectionVisible()) return null;
+
   const visibleItems = items.filter((item) => {
-    if (item.id === "user-management") return userRole === "admin";
+    if (item.id === "user-management")
+      return adminRoles.includes(userRole ?? "");
     return true;
   });
 
@@ -138,7 +201,7 @@ function NavSection({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/60 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
       >
         <span>{title}</span>
         {collapsed ? (
@@ -182,7 +245,7 @@ function NavLink({
         "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150",
         active
           ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
@@ -222,21 +285,21 @@ export default function Sidebar({
   }));
 
   return (
-    <aside className="flex flex-col h-full bg-sidebar w-64 shrink-0">
+    <aside className="flex flex-col h-full bg-sidebar w-64 shrink-0 border-r border-sidebar-border">
       {/* Brand */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
-        <div className="bg-primary/20 rounded-xl p-2 shrink-0">
+        <div className="bg-primary/10 rounded-xl p-1 shrink-0">
           <img
-            src="/assets/generated/classio-logo-transparent.dim_120x120.png"
+            src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
             alt="Classio ERP"
-            className="w-8 h-8 object-contain"
+            className="w-9 h-9 rounded-lg object-cover"
           />
         </div>
         <div className="min-w-0">
           <h1 className="text-sidebar-foreground font-display font-bold text-base leading-tight">
             Classio ERP
           </h1>
-          <p className="text-sidebar-foreground/40 text-xs">
+          <p className="text-sidebar-foreground/60 text-xs">
             School Management
           </p>
         </div>
@@ -274,7 +337,7 @@ export default function Sidebar({
       {/* User info + Logout */}
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors">
-          <div className="w-8 h-8 rounded-full bg-sidebar-primary/30 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
             <span className="text-sidebar-foreground text-sm font-semibold">
               {userProfile?.name?.charAt(0)?.toUpperCase() ?? "?"}
             </span>
@@ -283,7 +346,7 @@ export default function Sidebar({
             <p className="text-sidebar-foreground text-sm font-medium truncate">
               {userProfile?.name ?? "User"}
             </p>
-            <p className="text-sidebar-foreground/40 text-xs capitalize">
+            <p className="text-sidebar-foreground/60 text-xs capitalize">
               {userRole ?? userProfile?.role ?? "user"}
             </p>
           </div>
@@ -291,7 +354,7 @@ export default function Sidebar({
             type="button"
             data-ocid="nav.logout.button"
             onClick={handleLogout}
-            className="text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors p-1"
+            className="text-sidebar-foreground/55 hover:text-sidebar-foreground transition-colors p-1"
             title="Logout"
           >
             <LogOut className="h-4 w-4" />

@@ -16,8 +16,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        display: ['Bricolage Grotesque', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        sans: ["Figtree", "system-ui", "sans-serif"],
+        display: ["Playfair Display", "Figtree", "system-ui", "serif"],
       },
       colors: {
         border: "oklch(var(--border))",

@@ -89,18 +89,14 @@ export class ExternalBlob {
         return this;
     }
 }
-export type HireDate = bigint;
-export type Salary = bigint;
-export type Timestamp = bigint;
-export type StartDate = bigint;
-export type LeaveType = string;
 export interface Class {
     id: Identifier;
     subjects: Subjects;
     name: Name;
     teacherId: Identifier;
 }
-export type AuthorName = string;
+export type ApplicantId = string;
+export type GradeLevel = string;
 export type MaxScore = bigint;
 export type DepartmentId = string;
 export interface Teacher {
@@ -113,29 +109,6 @@ export interface Teacher {
     contactPhone: ContactPhone;
     firstName: string;
 }
-export type Remarks = string;
-export type EnrollmentDate = bigint;
-export type Instructions = string;
-export type Grade = bigint;
-export interface Course {
-    id: string;
-    title: string;
-    subject: string;
-    description: string;
-    classId: string;
-    isActive: boolean;
-    teacherId: string;
-}
-export interface LeaveRequest {
-    id: Identifier;
-    status: Status;
-    endDate: EndDate;
-    staffId: StaffId;
-    leaveType: LeaveType;
-    startDate: StartDate;
-    reason: Reason;
-}
-export type OrderIndex = bigint;
 export interface Lesson {
     id: Identifier;
     title: Title;
@@ -143,20 +116,17 @@ export interface Lesson {
     courseId: CourseId;
     orderIndex: OrderIndex;
 }
-export type Title = string;
-export interface Staff {
-    id: Identifier;
-    salary: Salary;
-    hireDate: HireDate;
-    isActive: IsActive;
-    employmentType: EmploymentType;
-    contactEmail: ContactEmail;
-    position: Position;
-    lastName: string;
-    departmentId: DepartmentId;
-    contactPhone: ContactPhone;
-    firstName: string;
+export interface StudentInvoice {
+    id: string;
+    status: string;
+    studentId: Identifier;
+    feeStructureId: string;
+    dueDate: bigint;
+    issuedDate: bigint;
+    amount: bigint;
 }
+export type Title = string;
+export type EndDate = bigint;
 export interface ResourceLink {
     id: string;
     url: string;
@@ -164,18 +134,24 @@ export interface ResourceLink {
     resourceType: string;
     courseId: string;
 }
-export type EndDate = bigint;
 export type DueDate = bigint;
-export type DateOfJoin = bigint;
-export interface SchoolProfile {
-    motto: string;
-    email: string;
-    address: string;
-    phone: string;
-    schoolName: string;
+export type CourseId = string;
+export interface AttendanceRecord {
+    absentStudents: Array<Identifier>;
+    date: bigint;
+    classId: Identifier;
+    presentStudents: Array<Identifier>;
 }
-export type Subject = string;
 export type Identifier = string;
+export type Subject = string;
+export interface Assignment {
+    id: Identifier;
+    title: Title;
+    maxScore: MaxScore;
+    dueDate: DueDate;
+    instructions: Instructions;
+    courseId: CourseId;
+}
 export interface Student {
     id: Identifier;
     isActive: IsActive;
@@ -187,24 +163,7 @@ export interface Student {
     contactPhone: ContactPhone;
     firstName: string;
 }
-export type CourseId = string;
-export type ContactPhone = string;
-export type StaffId = string;
-export interface AttendanceRecord {
-    absentStudents: Array<Identifier>;
-    date: bigint;
-    classId: Identifier;
-    presentStudents: Array<Identifier>;
-}
 export type ContentText = string;
-export interface Assignment {
-    id: Identifier;
-    title: Title;
-    maxScore: MaxScore;
-    dueDate: DueDate;
-    instructions: Instructions;
-    courseId: CourseId;
-}
 export type ParentName = string;
 export type Score = bigint;
 export interface GradeRecord {
@@ -215,17 +174,23 @@ export interface GradeRecord {
     remarks: Remarks;
 }
 export type Name = string;
-export type EmploymentType = string;
-export interface PayrollRecord {
+export interface Payment {
     id: string;
-    month: bigint;
-    staffId: string;
-    year: bigint;
-    deductions: bigint;
-    isPaid: boolean;
-    netPay: bigint;
-    allowances: bigint;
-    basicSalary: bigint;
+    method: string;
+    studentId: Identifier;
+    invoiceId: string;
+    notes: string;
+    paymentDate: bigint;
+    amount: bigint;
+}
+export type Notes = string;
+export interface Expense {
+    id: string;
+    date: bigint;
+    approvedBy: string;
+    description: string;
+    category: string;
+    amount: bigint;
 }
 export interface AssignmentSubmission {
     id: string;
@@ -237,12 +202,17 @@ export interface AssignmentSubmission {
     assignmentId: Identifier;
     submissionText: string;
 }
-export interface Announcement {
-    id: string;
-    title: Title;
-    body: Body;
-    authorName: AuthorName;
-    timestamp: Timestamp;
+export interface Applicant {
+    id: ApplicantId;
+    status: string;
+    classApplied: string;
+    email: string;
+    dateApplied: bigint;
+    programApplied: string;
+    notes: Notes;
+    phone: string;
+    lastName: string;
+    firstName: string;
 }
 export interface Department {
     id: string;
@@ -257,17 +227,98 @@ export interface AttendanceRecordInput {
     presentStudents: Array<Identifier>;
 }
 export type Term = string;
-export type Body = string;
-export type ContactEmail = string;
-export type Status = string;
 export type IsActive = boolean;
-export type Reason = string;
-export type Subjects = Array<string>;
+export type AuthorName = string;
 export interface UserProfile {
     linkedId?: string;
     name: string;
     role: string;
 }
+export type Salary = bigint;
+export type Timestamp = bigint;
+export type StartDate = bigint;
+export type LeaveType = string;
+export type Remarks = string;
+export interface Course {
+    id: string;
+    title: string;
+    subject: string;
+    description: string;
+    classId: string;
+    isActive: boolean;
+    teacherId: string;
+}
+export interface FeeStructure {
+    id: FeeId;
+    name: string;
+    description: string;
+    isActive: IsActive;
+    academicYear: string;
+    gradeLevel: GradeLevel;
+    amount: bigint;
+}
+export type Instructions = string;
+export type Grade = bigint;
+export type FeeId = string;
+export interface LeaveRequest {
+    id: Identifier;
+    status: Status;
+    endDate: EndDate;
+    staffId: StaffId;
+    leaveType: LeaveType;
+    startDate: StartDate;
+    reason: Reason;
+}
+export type OrderIndex = bigint;
+export interface Staff {
+    id: Identifier;
+    salary: Salary;
+    hireDate: HireDate;
+    isActive: IsActive;
+    employmentType: EmploymentType;
+    contactEmail: ContactEmail;
+    position: Position;
+    lastName: string;
+    departmentId: DepartmentId;
+    contactPhone: ContactPhone;
+    firstName: string;
+}
+export type EnrollmentDate = bigint;
+export interface Announcement {
+    id: string;
+    title: Title;
+    body: Body;
+    authorName: AuthorName;
+    timestamp: Timestamp;
+}
+export type DateOfJoin = bigint;
+export interface SchoolProfile {
+    motto: string;
+    email: string;
+    address: string;
+    phone: string;
+    schoolName: string;
+}
+export type ContactPhone = string;
+export type StaffId = string;
+export type EmploymentType = string;
+export interface PayrollRecord {
+    id: string;
+    month: bigint;
+    staffId: string;
+    year: bigint;
+    deductions: bigint;
+    isPaid: boolean;
+    netPay: bigint;
+    allowances: bigint;
+    basicSalary: bigint;
+}
+export type Body = string;
+export type ContactEmail = string;
+export type HireDate = bigint;
+export type Status = string;
+export type Reason = string;
+export type Subjects = Array<string>;
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -282,16 +333,27 @@ export interface backendInterface {
     addResourceLink(courseId: string, title: string, url: string, resourceType: string): Promise<string>;
     approveLeaveRequest(leaveRequestId: Identifier): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    convertApplicantToStudent(applicantId: string): Promise<Identifier>;
     createAnnouncement(title: Title, body: Body, authorName: AuthorName): Promise<string>;
+    createApplicant(firstName: string, lastName: string, email: string, phone: string, programApplied: string, classApplied: string, dateApplied: bigint, status: string, notes: Notes): Promise<string>;
     createClass(name: Name, teacherId: Identifier, subjects: Subjects): Promise<Identifier>;
+    createExpense(category: string, description: string, amount: bigint, date: bigint, approvedBy: string): Promise<string>;
+    createFeeStructure(name: string, description: string, amount: bigint, gradeLevel: GradeLevel, academicYear: string, isActive: IsActive): Promise<string>;
+    createPayment(invoiceId: string, studentId: Identifier, amount: bigint, paymentDate: bigint, method: string, notes: string): Promise<string>;
     createStaff(firstName: string, lastName: string, position: Position, departmentId: DepartmentId, employmentType: EmploymentType, salary: Salary, contactEmail: ContactEmail, contactPhone: ContactPhone, hireDate: HireDate, isActive: IsActive): Promise<Identifier>;
     createStudent(firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, isActive: IsActive): Promise<Identifier>;
+    createStudentInvoice(studentId: Identifier, feeStructureId: string, amount: bigint, dueDate: bigint, status: string, issuedDate: bigint): Promise<string>;
     createTeacher(firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, isActive: IsActive): Promise<Identifier>;
+    deleteApplicant(id: string): Promise<void>;
     deleteClass(id: Identifier): Promise<void>;
     deleteCourse(id: string): Promise<void>;
     deleteDepartment(id: string): Promise<void>;
+    deleteExpense(id: string): Promise<void>;
+    deleteFeeStructure(id: string): Promise<void>;
+    deletePayment(id: string): Promise<void>;
     deleteStaff(id: Identifier): Promise<void>;
     deleteStudent(id: Identifier): Promise<void>;
+    deleteStudentInvoice(id: string): Promise<void>;
     deleteTeacher(id: Identifier): Promise<void>;
     enrollStudentInClass(classId: Identifier, studentId: Identifier | null): Promise<void>;
     generatePayroll(staffId: string, month: bigint, year: bigint, basicSalary: bigint, allowances: bigint, deductions: bigint, netPay: bigint): Promise<string>;
@@ -300,14 +362,21 @@ export interface backendInterface {
     getActiveStudents(): Promise<Array<Student>>;
     getActiveTeachers(): Promise<Array<Teacher>>;
     getAllAnnouncements(): Promise<Array<Announcement>>;
+    getAllApplicants(): Promise<Array<Applicant>>;
     getAllClasses(): Promise<Array<Class>>;
     getAllCourses(): Promise<Array<Course>>;
     getAllDepartments(): Promise<Array<Department>>;
+    getAllExpenses(): Promise<Array<Expense>>;
+    getAllFeeStructures(): Promise<Array<FeeStructure>>;
+    getAllPayments(): Promise<Array<Payment>>;
     getAllResourceLinks(): Promise<Array<ResourceLink>>;
     getAllStaff(): Promise<Array<Staff>>;
+    getAllStudentInvoices(): Promise<Array<StudentInvoice>>;
     getAllStudents(): Promise<Array<Student>>;
     getAllTeachers(): Promise<Array<Teacher>>;
     getAnnouncement(id: string): Promise<Announcement>;
+    getApplicant(id: string): Promise<Applicant>;
+    getApplicantsByStatus(status: string): Promise<Array<Applicant>>;
     getAssignment(id: Identifier): Promise<Assignment>;
     getAssignmentsByCourse(courseId: CourseId): Promise<Array<Assignment>>;
     getAttendance(classId: string): Promise<Array<AttendanceRecord>>;
@@ -324,6 +393,8 @@ export interface backendInterface {
         totalCourses: bigint;
     }>;
     getDepartment(id: string): Promise<Department>;
+    getExpense(id: string): Promise<Expense>;
+    getFeeStructure(id: string): Promise<FeeStructure>;
     getGrade(gradeId: string): Promise<GradeRecord>;
     getGradesByStudent(studentId: Identifier): Promise<Array<GradeRecord>>;
     getGradesBySubject(subject: Subject): Promise<Array<GradeRecord>>;
@@ -331,6 +402,8 @@ export interface backendInterface {
     getLeaveRequestsByStaff(staffId: string): Promise<Array<LeaveRequest>>;
     getLesson(id: Identifier): Promise<Lesson>;
     getLessonsByCourse(courseId: CourseId): Promise<Array<Lesson>>;
+    getOverdueInvoices(): Promise<Array<StudentInvoice>>;
+    getPayment(id: string): Promise<Payment>;
     getPayrollRecord(id: string): Promise<PayrollRecord>;
     getPayrollRecordsByStaff(staffId: string): Promise<Array<PayrollRecord>>;
     getPendingLeaveRequests(): Promise<Array<LeaveRequest>>;
@@ -338,12 +411,16 @@ export interface backendInterface {
     getSchoolProfile(): Promise<SchoolProfile>;
     getStaff(id: Identifier): Promise<Staff>;
     getStudent(id: Identifier): Promise<Student>;
+    getStudentInvoice(id: string): Promise<StudentInvoice>;
     getStudentsSortedByFirstName(): Promise<Array<Student>>;
     getStudentsSortedByLastName(): Promise<Array<Student>>;
     getSubmission(id: string): Promise<AssignmentSubmission>;
     getSubmissionsByAssignment(assignmentId: Identifier): Promise<Array<AssignmentSubmission>>;
     getSubmissionsByStudent(studentId: Identifier): Promise<Array<AssignmentSubmission>>;
     getTeacher(id: Identifier): Promise<Teacher>;
+    getTotalExpenses(): Promise<bigint>;
+    getTotalFeesCollected(): Promise<bigint>;
+    getUnpaidInvoices(): Promise<Array<StudentInvoice>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     gradeSubmission(submissionId: string, score: bigint, feedback: string): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
@@ -355,9 +432,15 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     submitAssignment(assignmentId: Identifier, studentId: Identifier, submissionText: string): Promise<string>;
     submitLeaveRequest(staffId: StaffId, leaveType: LeaveType, startDate: StartDate, endDate: EndDate, reason: Reason): Promise<Identifier>;
+    updateApplicant(id: string, firstName: string, lastName: string, email: string, phone: string, programApplied: string, classApplied: string, dateApplied: bigint, status: string, notes: Notes): Promise<string>;
+    updateApplicantStatus(id: string, status: string): Promise<void>;
     updateClass(id: Identifier, name: Name, teacherId: Identifier, subjects: Subjects): Promise<Identifier>;
+    updateExpense(id: string, category: string, description: string, amount: bigint, date: bigint, approvedBy: string): Promise<string>;
+    updateFeeStructure(id: string, name: string, description: string, amount: bigint, gradeLevel: GradeLevel, academicYear: string, isActive: IsActive): Promise<string>;
+    updatePayment(id: string, invoiceId: string, studentId: Identifier, amount: bigint, paymentDate: bigint, method: string, notes: string): Promise<string>;
     updateStaff(id: Identifier, firstName: string, lastName: string, position: Position, departmentId: DepartmentId, employmentType: EmploymentType, salary: Salary, contactEmail: ContactEmail, contactPhone: ContactPhone, hireDate: HireDate, isActive: IsActive): Promise<Identifier>;
     updateStudent(id: Identifier, firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, isActive: IsActive): Promise<Identifier>;
+    updateStudentInvoice(id: string, studentId: Identifier, feeStructureId: string, amount: bigint, dueDate: bigint, status: string, issuedDate: bigint): Promise<string>;
     updateTeacher(id: Identifier, firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, isActive: IsActive): Promise<Identifier>;
 }
 import type { AssignmentSubmission as _AssignmentSubmission, Identifier as _Identifier, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
@@ -475,6 +558,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async convertApplicantToStudent(arg0: string): Promise<Identifier> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.convertApplicantToStudent(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.convertApplicantToStudent(arg0);
+            return result;
+        }
+    }
     async createAnnouncement(arg0: Title, arg1: Body, arg2: AuthorName): Promise<string> {
         if (this.processError) {
             try {
@@ -489,6 +586,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async createApplicant(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: bigint, arg7: string, arg8: Notes): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createApplicant(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createApplicant(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+            return result;
+        }
+    }
     async createClass(arg0: Name, arg1: Identifier, arg2: Subjects): Promise<Identifier> {
         if (this.processError) {
             try {
@@ -500,6 +611,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.createClass(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async createExpense(arg0: string, arg1: string, arg2: bigint, arg3: bigint, arg4: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createExpense(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createExpense(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
+    async createFeeStructure(arg0: string, arg1: string, arg2: bigint, arg3: GradeLevel, arg4: string, arg5: IsActive): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createFeeStructure(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createFeeStructure(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
+    async createPayment(arg0: string, arg1: Identifier, arg2: bigint, arg3: bigint, arg4: string, arg5: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createPayment(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createPayment(arg0, arg1, arg2, arg3, arg4, arg5);
             return result;
         }
     }
@@ -531,6 +684,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async createStudentInvoice(arg0: Identifier, arg1: string, arg2: bigint, arg3: bigint, arg4: string, arg5: bigint): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createStudentInvoice(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createStudentInvoice(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
     async createTeacher(arg0: string, arg1: string, arg2: Subjects, arg3: ContactEmail, arg4: ContactPhone, arg5: DateOfJoin, arg6: IsActive): Promise<Identifier> {
         if (this.processError) {
             try {
@@ -542,6 +709,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.createTeacher(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return result;
+        }
+    }
+    async deleteApplicant(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteApplicant(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteApplicant(arg0);
             return result;
         }
     }
@@ -587,6 +768,48 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async deleteExpense(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteExpense(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteExpense(arg0);
+            return result;
+        }
+    }
+    async deleteFeeStructure(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteFeeStructure(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteFeeStructure(arg0);
+            return result;
+        }
+    }
+    async deletePayment(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deletePayment(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deletePayment(arg0);
+            return result;
+        }
+    }
     async deleteStaff(arg0: Identifier): Promise<void> {
         if (this.processError) {
             try {
@@ -612,6 +835,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteStudent(arg0);
+            return result;
+        }
+    }
+    async deleteStudentInvoice(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteStudentInvoice(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteStudentInvoice(arg0);
             return result;
         }
     }
@@ -727,6 +964,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getAllApplicants(): Promise<Array<Applicant>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllApplicants();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllApplicants();
+            return result;
+        }
+    }
     async getAllClasses(): Promise<Array<Class>> {
         if (this.processError) {
             try {
@@ -769,6 +1020,48 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getAllExpenses(): Promise<Array<Expense>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllExpenses();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllExpenses();
+            return result;
+        }
+    }
+    async getAllFeeStructures(): Promise<Array<FeeStructure>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllFeeStructures();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllFeeStructures();
+            return result;
+        }
+    }
+    async getAllPayments(): Promise<Array<Payment>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllPayments();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllPayments();
+            return result;
+        }
+    }
     async getAllResourceLinks(): Promise<Array<ResourceLink>> {
         if (this.processError) {
             try {
@@ -794,6 +1087,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getAllStaff();
+            return result;
+        }
+    }
+    async getAllStudentInvoices(): Promise<Array<StudentInvoice>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllStudentInvoices();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllStudentInvoices();
             return result;
         }
     }
@@ -836,6 +1143,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getAnnouncement(arg0);
+            return result;
+        }
+    }
+    async getApplicant(arg0: string): Promise<Applicant> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getApplicant(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getApplicant(arg0);
+            return result;
+        }
+    }
+    async getApplicantsByStatus(arg0: string): Promise<Array<Applicant>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getApplicantsByStatus(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getApplicantsByStatus(arg0);
             return result;
         }
     }
@@ -985,6 +1320,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getExpense(arg0: string): Promise<Expense> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getExpense(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getExpense(arg0);
+            return result;
+        }
+    }
+    async getFeeStructure(arg0: string): Promise<FeeStructure> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getFeeStructure(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getFeeStructure(arg0);
+            return result;
+        }
+    }
     async getGrade(arg0: string): Promise<GradeRecord> {
         if (this.processError) {
             try {
@@ -1080,6 +1443,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getLessonsByCourse(arg0);
+            return result;
+        }
+    }
+    async getOverdueInvoices(): Promise<Array<StudentInvoice>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getOverdueInvoices();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getOverdueInvoices();
+            return result;
+        }
+    }
+    async getPayment(arg0: string): Promise<Payment> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getPayment(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getPayment(arg0);
             return result;
         }
     }
@@ -1181,6 +1572,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getStudentInvoice(arg0: string): Promise<StudentInvoice> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getStudentInvoice(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getStudentInvoice(arg0);
+            return result;
+        }
+    }
     async getStudentsSortedByFirstName(): Promise<Array<Student>> {
         if (this.processError) {
             try {
@@ -1262,6 +1667,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getTeacher(arg0);
+            return result;
+        }
+    }
+    async getTotalExpenses(): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getTotalExpenses();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getTotalExpenses();
+            return result;
+        }
+    }
+    async getTotalFeesCollected(): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getTotalFeesCollected();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getTotalFeesCollected();
+            return result;
+        }
+    }
+    async getUnpaidInvoices(): Promise<Array<StudentInvoice>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUnpaidInvoices();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUnpaidInvoices();
             return result;
         }
     }
@@ -1419,6 +1866,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateApplicant(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: bigint, arg8: string, arg9: Notes): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateApplicant(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateApplicant(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+            return result;
+        }
+    }
+    async updateApplicantStatus(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateApplicantStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateApplicantStatus(arg0, arg1);
+            return result;
+        }
+    }
     async updateClass(arg0: Identifier, arg1: Name, arg2: Identifier, arg3: Subjects): Promise<Identifier> {
         if (this.processError) {
             try {
@@ -1430,6 +1905,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateClass(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
+    async updateExpense(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: bigint, arg5: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateExpense(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateExpense(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
+    async updateFeeStructure(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: GradeLevel, arg5: string, arg6: IsActive): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateFeeStructure(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateFeeStructure(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return result;
+        }
+    }
+    async updatePayment(arg0: string, arg1: string, arg2: Identifier, arg3: bigint, arg4: bigint, arg5: string, arg6: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updatePayment(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updatePayment(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
             return result;
         }
     }
@@ -1458,6 +1975,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateStudent(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+            return result;
+        }
+    }
+    async updateStudentInvoice(arg0: string, arg1: Identifier, arg2: string, arg3: bigint, arg4: bigint, arg5: string, arg6: bigint): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateStudentInvoice(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateStudentInvoice(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
             return result;
         }
     }
