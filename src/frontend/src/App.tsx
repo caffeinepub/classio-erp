@@ -4,7 +4,7 @@ import { useState } from "react";
 import AuthGate from "./components/AuthGate";
 import InstallPrompt from "./components/InstallPrompt";
 import Sidebar from "./components/Sidebar";
-import { LocalAuthProvider } from "./hooks/useLocalAuth";
+import { LocalAuthProvider, useLocalAuth } from "./hooks/useLocalAuth";
 import AdmissionsPage from "./pages/AdmissionsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AttendancePage from "./pages/AttendancePage";
@@ -60,7 +60,16 @@ type Page =
 
 const MAX_HISTORY = 20;
 
+const TEACHER_ALLOWED_PAGES: Page[] = [
+  "dashboard",
+  "my-leave-requests",
+  "my-attendance",
+  "salary-slip",
+  "settings",
+];
+
 function MainApp() {
+  const { user } = useLocalAuth();
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [pageHistory, setPageHistory] = useState<Page[]>(["dashboard"]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
@@ -102,6 +111,14 @@ function MainApp() {
   };
 
   const renderPage = () => {
+    // Route guard for teachers — only allowed pages are accessible
+    if (
+      user?.role === "teacher" &&
+      !TEACHER_ALLOWED_PAGES.includes(activePage)
+    ) {
+      return <DashboardPage onNavigate={handleNavigate} />;
+    }
+
     switch (activePage) {
       case "dashboard":
         return <DashboardPage onNavigate={handleNavigate} />;

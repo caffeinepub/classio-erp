@@ -106,7 +106,7 @@ const navItems: NavItem[] = [
   // Administration
   {
     id: "user-management",
-    label: "User Management",
+    label: "Teacher Accounts",
     icon: BookOpen,
     section: "Administration",
   },
@@ -180,13 +180,7 @@ function NavSection({
 }) {
   const adminRoles = ["superadmin", "admin", "schooladmin"];
   const hrRoles = ["superadmin", "admin", "schooladmin", "hr"];
-  const schoolAdminRoles = [
-    "superadmin",
-    "admin",
-    "schooladmin",
-    "hr",
-    "teacher",
-  ];
+  const schoolAdminRoles = ["superadmin", "admin", "schooladmin", "hr"];
 
   // Section visibility
   const isSectionVisible = () => {
@@ -197,12 +191,12 @@ function NavSection({
       case "Finance":
         return hrRoles.includes(userRole ?? "");
       case "Academic":
-        return (
-          schoolAdminRoles.includes(userRole ?? "") || userRole === "teacher"
-        );
+        // Teachers do NOT see the Academic section — they use My Account instead
+        return schoolAdminRoles.includes(userRole ?? "");
       case "HR Management":
         return hrRoles.includes(userRole ?? "");
       case "Administration":
+        // Teachers do NOT see the Administration section
         return schoolAdminRoles.includes(userRole ?? "");
       case "My Account":
         return userRole === "teacher";
@@ -216,10 +210,12 @@ function NavSection({
   const visibleItems = items.filter((item) => {
     if (item.id === "user-management")
       return adminRoles.includes(userRole ?? "");
-    // Teachers: view-only Academic, no admin HR items except leave-requests
+    // Teachers: only see My Account items; all other section items are hidden via isSectionVisible
     if (userRole === "teacher") {
-      if (["staff", "departments", "payroll"].includes(item.id)) return false;
-      if (item.id === "leave-requests") return true; // they see their own through LeaveRequestsPage
+      if (
+        ["staff", "departments", "payroll", "leave-requests"].includes(item.id)
+      )
+        return false;
     }
     return true;
   });
@@ -300,7 +296,14 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
     logout();
   };
 
-  const topNavItems = navItems.filter((item) => !item.section);
+  // Teachers do not see the top-level Dashboard link (they land on their own dashboard)
+  const topNavItems = navItems.filter((item) => {
+    if (!item.section) {
+      if (userRole === "teacher") return false;
+    }
+    return !item.section;
+  });
+
   const sectionedItems = sections.map((section) => ({
     title: section,
     items: navItems.filter((item) => item.section === section),
@@ -329,7 +332,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {/* Top-level items */}
+        {/* Top-level items (hidden for teachers) */}
         {topNavItems.map((item) => (
           <NavLink
             key={item.id}
@@ -339,7 +342,9 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
           />
         ))}
 
-        <div className="my-2 border-t border-sidebar-border" />
+        {topNavItems.length > 0 && (
+          <div className="my-2 border-t border-sidebar-border" />
+        )}
 
         {/* Sections */}
         {sectionedItems.map(({ title, items }) => (
@@ -354,6 +359,17 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
             userRole={userRole}
           />
         ))}
+
+        {/* Standalone Settings link for teachers */}
+        {userRole === "teacher" && (
+          <div className="mt-1">
+            <NavLink
+              item={{ id: "settings", label: "Settings", icon: Settings }}
+              active={activePage === "settings"}
+              onNavigate={onNavigate}
+            />
+          </div>
+        )}
       </nav>
 
       {/* User info + Logout */}
