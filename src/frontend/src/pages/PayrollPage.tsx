@@ -18,11 +18,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { IndianRupee, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, PageHeader, StatusBadge } from "../components/shared";
 import {
   useAllStaff,
+  useAllTeachers,
   useGeneratePayroll,
   useMarkPayrollAsPaid,
   usePayrollByStaff,
@@ -44,14 +45,46 @@ const MONTHS = [
   "December",
 ];
 
+// Experience tiers: { minYears, label, salary (in rupees) }
+const EXPERIENCE_TIERS = [
+  { minYears: 15, label: "15+ years", salary: 40000 },
+  { minYears: 5, label: "5+ years", salary: 30000 },
+  { minYears: 2, label: "2+ years", salary: 10000 },
+  { minYears: 0, label: "< 2 years", salary: 10000 },
+];
+
+function getYearsOfExperience(dateOfJoinMs: bigint): number {
+  const joinMs = Number(dateOfJoinMs) / 1_000_000;
+  const now = Date.now();
+  return Math.floor((now - joinMs) / (1000 * 60 * 60 * 24 * 365.25));
+}
+
+function getSuggestedSalary(years: number): number {
+  for (const tier of EXPERIENCE_TIERS) {
+    if (years >= tier.minYears) return tier.salary;
+  }
+  return 10000;
+}
+
+function getTierLabel(years: number): string {
+  if (years >= 15) return "15+ years experience";
+  if (years >= 5) return "5+ years experience";
+  if (years >= 2) return "2+ years experience";
+  return "Less than 2 years experience";
+}
+
 export default function PayrollPage() {
   const { data: staff } = useAllStaff();
+  const { data: teachers } = useAllTeachers();
   const generatePayroll = useGeneratePayroll();
   const markAsPaid = useMarkPayrollAsPaid();
 
   const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [salaryMode, setSalaryMode] = useState<"experience" | "manual">(
+    "experience",
+  );
   const [form, setForm] = useState({
-    month: "1",
+    month: String(new Date().getMonth() + 1),
     year: String(new Date().getFullYear()),
     basicSalary: "",
     allowances: "0",
@@ -60,6 +93,42 @@ export default function PayrollPage() {
 
   const { data: payrollRecords, isLoading } =
     usePayrollByStaff(selectedStaffId);
+
+  const selectedStaffMember = staff?.find((s) => s.id === selectedStaffId);
+
+  // Find matching teacher record to get dateOfJoin for experience calc
+  const matchingTeacher = teachers?.find(
+    (t) =>
+      selectedStaffMember &&
+      `${t.firstName}${t.lastName}` ===
+        `${selectedStaffMember.firstName}${selectedStaffMember.lastName}`,
+  );
+
+  const yearsOfExp = matchingTeacher
+    ? getYearsOfExperience(matchingTeacher.dateOfJoin)
+    : null;
+
+  const suggestedSalary =
+    yearsOfExp !== null ? getSuggestedSalary(yearsOfExp) : null;
+
+  // When staff changes and mode is experience, auto-fill the basic salary
+  useEffect(() => {
+    if (salaryMode === "experience" && suggestedSalary !== null) {
+      setForm((f) => ({ ...f, basicSalary: String(suggestedSalary) }));
+    }
+  }, [suggestedSalary, salaryMode]);
+
+  const handleStaffChange = (id: string) => {
+    setSelectedStaffId(id);
+    setSalaryMode("experience");
+  };
+
+  const handleModeChange = (mode: "experience" | "manual") => {
+    setSalaryMode(mode);
+    if (mode === "experience" && suggestedSalary !== null) {
+      setForm((f) => ({ ...f, basicSalary: String(suggestedSalary) }));
+    }
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,8 +165,6 @@ export default function PayrollPage() {
     }
   };
 
-  const selectedStaffMember = staff?.find((s) => s.id === selectedStaffId);
-
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <PageHeader
@@ -119,7 +186,7 @@ export default function PayrollPage() {
                 <Label>Staff Member</Label>
                 <Select
                   value={selectedStaffId}
-                  onValueChange={setSelectedStaffId}
+                  onValueChange={handleStaffChange}
                 >
                   <SelectTrigger data-ocid="payroll.staff.select">
                     <SelectValue placeholder="Select staff" />
@@ -133,6 +200,7 @@ export default function PayrollPage() {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label>Month</Label>
@@ -164,24 +232,102 @@ export default function PayrollPage() {
                   />
                 </div>
               </div>
+
+              {/* Salary Mode Selector */}
               {selectedStaffId && (
-                <p className="text-xs text-muted-foreground">
-                  Contracted salary:{" "}
-                  {formatINR(selectedStaffMember?.salary ?? BigInt(0))}
-                </p>
+                <div className="space-y-2">
+                  <Label>Salary Type</Label>
+                  <div className="flex rounded-lg border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange("experience")}
+                      className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
+                        salaryMode === "experience"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      By Experience
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange("manual")}
+                      className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
+                        salaryMode === "manual"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      Manual
+                    </button>
+                  </div>
+                </div>
               )}
+
+              {/* Experience-based salary info */}
+              {selectedStaffId && salaryMode === "experience" && (
+                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-primary">
+                    Salary Range (Experience-Based)
+                  </p>
+                  <div className="space-y-1">
+                    {EXPERIENCE_TIERS.filter((t) => t.minYears > 0).map(
+                      (tier) => (
+                        <div
+                          key={tier.minYears}
+                          className={`flex justify-between text-xs px-2 py-1 rounded ${
+                            yearsOfExp !== null && yearsOfExp >= tier.minYears
+                              ? "bg-primary/10 text-primary font-semibold"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          <span>{tier.label}</span>
+                          <span>₹{tier.salary.toLocaleString("en-IN")}</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                  {yearsOfExp !== null && (
+                    <div className="pt-1 border-t border-primary/20">
+                      <p className="text-xs text-muted-foreground">
+                        Experience:{" "}
+                        <span className="font-semibold text-foreground">
+                          {yearsOfExp} yr{yearsOfExp !== 1 ? "s" : ""}
+                        </span>
+                        {" — "}
+                        <span className="text-primary">
+                          {getTierLabel(yearsOfExp)}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label>Basic Salary (₹)</Label>
                 <Input
                   data-ocid="payroll.basic.input"
                   type="number"
                   required
+                  readOnly={salaryMode === "experience"}
                   value={form.basicSalary}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, basicSalary: e.target.value }))
                   }
+                  className={
+                    salaryMode === "experience"
+                      ? "bg-muted cursor-not-allowed"
+                      : ""
+                  }
                 />
+                {salaryMode === "experience" && (
+                  <p className="text-xs text-muted-foreground">
+                    Auto-set from experience tier. Switch to Manual to override.
+                  </p>
+                )}
               </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label>Allowances (₹)</Label>
@@ -206,6 +352,7 @@ export default function PayrollPage() {
                   />
                 </div>
               </div>
+
               {form.basicSalary && (
                 <div className="bg-muted rounded-md p-2 text-sm">
                   <div className="flex justify-between text-muted-foreground">
@@ -220,6 +367,7 @@ export default function PayrollPage() {
                   </div>
                 </div>
               )}
+
               <Button
                 data-ocid="payroll.generate.primary_button"
                 type="submit"
