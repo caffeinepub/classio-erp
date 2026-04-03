@@ -1,10 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Bell,
   Building2,
   Calendar,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
   FileText,
   GraduationCap,
   IndianRupee,
@@ -16,16 +22,19 @@ import {
   Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import { EmptyState, PageHeader, StatsCard } from "../components/shared";
 import { useLocalAuth } from "../hooks/useLocalAuth";
 import {
   useAllAnnouncements,
   useAllApplicants,
   useDashboardStats,
+  usePendingAttendanceCorrections,
+  useSubmitAttendanceCorrection,
   useTotalFeesCollected,
 } from "../hooks/useQueries";
 import { formatINR } from "../utils/currencyUtils";
-import { bigIntToDateString } from "../utils/dateUtils";
+import { bigIntToDateString, dateToBigInt } from "../utils/dateUtils";
 
 function getRoleLabel(role: string | null): string {
   if (!role) return "User";
@@ -77,13 +86,485 @@ const teacherFeatureCards = [
   },
 ];
 
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+function formatDateLabel(date: Date): string {
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  return `${days[date.getDay()]}, ${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function AttendanceCalendar({
+  selectedDate,
+  onSelect,
+}: {
+  selectedDate: Date | null;
+  onSelect: (d: Date) => void;
+}) {
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const isCurrentMonthOrPast =
+    viewYear < today.getFullYear() ||
+    (viewYear === today.getFullYear() && viewMonth <= today.getMonth());
+
+  const isAtCurrentMonth =
+    viewYear === today.getFullYear() && viewMonth === today.getMonth();
+
+  function prevMonth() {
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  }
+
+  function nextMonth() {
+    if (isAtCurrentMonth) return;
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  }
+
+  // Build typed cell list: empty slots use their column position as key
+  type CalCell = { type: "empty"; col: number } | { type: "day"; day: number };
+  const calCells: CalCell[] = [
+    ...Array.from(
+      { length: firstDay },
+      (_, col): CalCell => ({ type: "empty", col }),
+    ),
+    ...Array.from(
+      { length: daysInMonth },
+      (_, i): CalCell => ({ type: "day", day: i + 1 }),
+    ),
+  ];
+
+  return (
+    <div className="select-none">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-3">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          aria-label="Previous month"
+          data-ocid="attendance.calendar.pagination_prev"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-sm font-semibold text-foreground">
+          {MONTH_NAMES[viewMonth]} {viewYear}
+        </span>
+        <button
+          type="button"
+          onClick={nextMonth}
+          disabled={isAtCurrentMonth}
+          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Next month"
+          data-ocid="attendance.calendar.pagination_next"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {WEEKDAY_LABELS.map((d) => (
+          <div
+            key={d}
+            className="text-center text-xs font-medium text-muted-foreground py-1"
+          >
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-y-1">
+        {calCells.map((cell) => {
+          if (cell.type === "empty") {
+            return (
+              <div
+                key={`empty-${viewYear}-${viewMonth}-${cell.col}`}
+                className="h-9"
+              />
+            );
+          }
+
+          const { day } = cell;
+          const cellDate = new Date(viewYear, viewMonth, day);
+          const isToday = isSameDay(cellDate, today);
+          const isFuture = cellDate > today && !isSameDay(cellDate, today);
+          const isSelected = selectedDate
+            ? isSameDay(cellDate, selectedDate)
+            : false;
+
+          return (
+            <div key={day} className="flex items-center justify-center h-9">
+              <button
+                type="button"
+                disabled={isFuture || !isCurrentMonthOrPast}
+                onClick={() => !isFuture && onSelect(cellDate)}
+                className={[
+                  "w-9 h-9 rounded-full text-sm font-medium flex items-center justify-center transition-all",
+                  isFuture
+                    ? "text-muted-foreground/30 cursor-not-allowed"
+                    : isSelected
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : isToday
+                        ? "ring-2 ring-primary text-primary font-bold hover:bg-primary/10"
+                        : "text-foreground hover:bg-muted cursor-pointer",
+                ].join(" ")}
+                aria-label={`Select ${formatDateLabel(cellDate)}`}
+              >
+                {day}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function QuickAttendanceSection({ username }: { username: string }) {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [notes, setNotes] = useState("");
+  const [submitted, setSubmitted] = useState<Date | null>(null);
+
+  const { data: corrections = [], isLoading: correctionsLoading } =
+    usePendingAttendanceCorrections();
+  const submitMutation = useSubmitAttendanceCorrection();
+
+  const myRequests = (corrections as any[]).filter(
+    (c: any) => c.staffId === username,
+  );
+
+  function handleSubmit() {
+    if (!selectedDate) return;
+    submitMutation.mutate(
+      {
+        staffId: username,
+        date: dateToBigInt(selectedDate),
+        requestedStatus: "Present",
+        reason: notes.trim(),
+      },
+      {
+        onSuccess: () => {
+          setSubmitted(selectedDate);
+          setNotes("");
+        },
+      },
+    );
+  }
+
+  function handleMarkAnother() {
+    setSelectedDate(null);
+    setSubmitted(null);
+    setNotes("");
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.35 }}
+      className="mt-8"
+    >
+      {/* Section heading */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <ClipboardList className="h-5 w-5 text-primary" />
+          Quick Attendance
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Mark your attendance and track your requests.
+        </p>
+      </div>
+
+      <Tabs defaultValue="mark" className="w-full">
+        <TabsList className="mb-4" data-ocid="attendance.tab">
+          <TabsTrigger value="mark" data-ocid="attendance.mark.tab">
+            <Calendar className="h-4 w-4 mr-1.5" />
+            Mark Attendance
+          </TabsTrigger>
+          <TabsTrigger value="requests" data-ocid="attendance.requests.tab">
+            <FileText className="h-4 w-4 mr-1.5" />
+            My Requests
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── Tab 1: Mark Attendance ── */}
+        <TabsContent value="mark">
+          <Card className="shadow-card border-border">
+            <CardContent className="pt-6">
+              {submitted ? (
+                /* Success state */
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.25 }}
+                  className="flex flex-col items-center text-center py-6 gap-4"
+                  data-ocid="attendance.success_state"
+                >
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle2 className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold text-foreground">
+                      Attendance Submitted
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                      Attendance for{" "}
+                      <span className="font-medium text-foreground">
+                        {formatDateLabel(submitted)}
+                      </span>{" "}
+                      has been submitted for School Admin approval. Once
+                      approved, it will reflect in payroll.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleMarkAnother}
+                    data-ocid="attendance.mark_another.button"
+                  >
+                    Mark Another Date
+                  </Button>
+                </motion.div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Calendar */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                      Select Date
+                    </p>
+                    <AttendanceCalendar
+                      selectedDate={selectedDate}
+                      onSelect={setSelectedDate}
+                    />
+                  </div>
+
+                  {/* Right panel */}
+                  <div className="flex flex-col gap-4">
+                    {selectedDate ? (
+                      <>
+                        <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                              Selected Date
+                            </p>
+                            <p className="text-sm font-semibold text-foreground mt-0.5">
+                              {formatDateLabel(selectedDate)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                              Status
+                            </p>
+                            <Badge className="mt-1 bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+                              ✓ Present
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="attendance-notes"
+                            className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+                          >
+                            Notes (optional)
+                          </label>
+                          <Textarea
+                            id="attendance-notes"
+                            placeholder="Add optional notes..."
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            rows={3}
+                            className="resize-none"
+                            data-ocid="attendance.notes.textarea"
+                          />
+                        </div>
+
+                        <Button
+                          onClick={handleSubmit}
+                          disabled={submitMutation.isPending}
+                          className="w-full"
+                          data-ocid="attendance.submit.primary_button"
+                        >
+                          {submitMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            "Submit Attendance"
+                          )}
+                        </Button>
+
+                        {submitMutation.isError && (
+                          <p
+                            className="text-xs text-destructive"
+                            data-ocid="attendance.submit.error_state"
+                          >
+                            Failed to submit. Please try again.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <div
+                        className="flex flex-col items-center justify-center h-full text-center py-8 gap-2"
+                        data-ocid="attendance.date_prompt.empty_state"
+                      >
+                        <Calendar className="h-8 w-8 text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground">
+                          Select a date on the calendar to mark your attendance.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab 2: My Requests ── */}
+        <TabsContent value="requests">
+          <Card className="shadow-card border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">
+                My Attendance Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {correctionsLoading ? (
+                <div
+                  className="flex items-center justify-center py-10"
+                  data-ocid="attendance.requests.loading_state"
+                >
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : myRequests.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center py-10 text-center gap-2"
+                  data-ocid="attendance.requests.empty_state"
+                >
+                  <ClipboardList className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">
+                    No requests yet.
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    Attendance you mark will appear here for tracking.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myRequests.map((req: any, i: number) => {
+                    const statusColors: Record<string, string> = {
+                      pending:
+                        "bg-yellow-100 text-yellow-700 border-yellow-200",
+                      approved: "bg-green-100 text-green-700 border-green-200",
+                      rejected: "bg-red-100 text-red-700 border-red-200",
+                    };
+                    const requestedStatusColors: Record<string, string> = {
+                      Present: "bg-green-100 text-green-700 border-green-200",
+                      Absent: "bg-red-100 text-red-700 border-red-200",
+                      Late: "bg-yellow-100 text-yellow-700 border-yellow-200",
+                    };
+                    const statusClass =
+                      statusColors[req.status] ??
+                      "bg-muted text-muted-foreground border-border";
+                    const requestedClass =
+                      requestedStatusColors[req.requestedStatus] ??
+                      "bg-muted text-muted-foreground border-border";
+
+                    return (
+                      <div
+                        key={req.id}
+                        data-ocid={`attendance.requests.item.${i + 1}`}
+                        className="flex items-start justify-between gap-3 border border-border rounded-xl p-4 hover:bg-muted/20 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            {bigIntToDateString(req.date)}
+                          </p>
+                          {req.reason && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {req.reason}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs capitalize ${requestedClass}`}
+                          >
+                            {req.requestedStatus}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs capitalize ${statusClass}`}
+                          >
+                            {req.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </motion.div>
+  );
+}
+
 function TeacherDashboard({
   onNavigate,
   user,
   roleLabel,
 }: {
   onNavigate: (page: string) => void;
-  user: { name?: string; role?: string } | null;
+  user: { name?: string; role?: string; username?: string } | null;
   roleLabel: string;
 }) {
   return (
@@ -192,6 +673,9 @@ function TeacherDashboard({
           );
         })}
       </div>
+
+      {/* Quick Attendance Tabs */}
+      <QuickAttendanceSection username={user?.username ?? user?.name ?? ""} />
     </div>
   );
 }
