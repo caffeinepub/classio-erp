@@ -1,0 +1,132 @@
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Navy sidebar background: oklch(0.22 0.08 250) ~ #1e2a4a */
+    --sidebar: 0.22 0.065 252;
+    --sidebar-foreground: 0.95 0.01 240;
+    --sidebar-primary: 0.62 0.2 255;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.3 0.07 252;
+    --sidebar-accent-foreground: 0.95 0.01 240;
+    --sidebar-border: 0.32 0.06 252;
+    --sidebar-ring: 0.62 0.2 255;
+
+    /* Main content: white background */
+    --background: 0.98 0.005 240;
+    --foreground: 0.18 0.04 252;
+
+    /* Cards: white with subtle shadow */
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.04 252;
+
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.04 252;
+
+    /* Blue accent: oklch(0.62 0.2 255) ~ #3b82f6 */
+    --primary: 0.6 0.22 255;
+    --primary-foreground: 1 0 0;
+
+    --secondary: 0.96 0.01 240;
+    --secondary-foreground: 0.22 0.065 252;
+
+    --muted: 0.96 0.01 240;
+    --muted-foreground: 0.52 0.04 252;
+
+    --accent: 0.94 0.03 252;
+    --accent-foreground: 0.22 0.065 252;
+
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 1 0 0;
+
+    --border: 0.9 0.01 240;
+    --input: 0.88 0.02 240;
+    --ring: 0.6 0.22 255;
+
+    /* Charts */
+    --chart-1: 0.6 0.22 255;
+    --chart-2: 0.65 0.18 180;
+    --chart-3: 0.72 0.15 140;
+    --chart-4: 0.75 0.18 60;
+    --chart-5: 0.65 0.22 30;
+
+    /* Success / Warning */
+    --success: 0.65 0.18 142;
+    --success-foreground: 1 0 0;
+    --warning: 0.78 0.18 60;
+    --warning-foreground: 0.18 0.04 60;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Bricolage Grotesque", "Plus Jakarta Sans", system-ui,
+      sans-serif;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .success {
+    color: oklch(var(--success));
+  }
+  .bg-success {
+    background-color: oklch(var(--success));
+  }
+  .text-success {
+    color: oklch(var(--success));
+  }
+  .bg-warning {
+    background-color: oklch(var(--warning));
+  }
+  .text-warning {
+    color: oklch(var(--warning));
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(var(--muted-foreground));
+}
