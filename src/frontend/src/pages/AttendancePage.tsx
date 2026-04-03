@@ -16,18 +16,24 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, PageHeader } from "../components/shared";
 import {
+  useAddTeacherAttendance,
   useAllClasses,
   useAllStudents,
+  useAllTeachers,
   useAttendanceByClass,
   useRecordAttendance,
+  useTeacherAttendanceByDate,
 } from "../hooks/useQueries";
 import { bigIntToDateString, dateToBigInt } from "../utils/dateUtils";
 
 export default function AttendancePage() {
   const { data: classes } = useAllClasses();
   const { data: students } = useAllStudents();
+  const { data: teachers } = useAllTeachers();
   const recordAttendance = useRecordAttendance();
+  const addTeacherAttendance = useAddTeacherAttendance();
 
+  // Student attendance state
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0],
@@ -38,8 +44,6 @@ export default function AttendancePage() {
     useAttendanceByClass(selectedClassId);
 
   const selectedClass = classes?.find((c) => c.id === selectedClassId);
-
-  // For the attendance form, use all active students
   const classStudents = (students ?? []).filter((s) => s.isActive);
 
   const toggleStudent = (id: string) => {
@@ -59,7 +63,7 @@ export default function AttendancePage() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleStudentAttendanceSubmit = async () => {
     if (!selectedClassId) {
       toast.error("Please select a class");
       return;
@@ -79,23 +83,79 @@ export default function AttendancePage() {
     }
   };
 
+  // Teacher attendance state
+  const [teacherDate, setTeacherDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [teacherStatuses, setTeacherStatuses] = useState<
+    Record<string, string>
+  >({});
+  const [savingTeacherAttendance, setSavingTeacherAttendance] = useState(false);
+
+  const { data: teacherAttendanceRecords } =
+    useTeacherAttendanceByDate(teacherDate);
+
+  const getTeacherStatus = (teacherId: string) => {
+    const existing = teacherAttendanceRecords?.find(
+      (r) => r.teacherId === teacherId,
+    );
+    return teacherStatuses[teacherId] ?? existing?.status ?? "";
+  };
+
+  const setTeacherStatus = (teacherId: string, status: string) => {
+    setTeacherStatuses((prev) => ({ ...prev, [teacherId]: status }));
+  };
+
+  const handleSaveTeacherAttendance = async () => {
+    const teachersToSave = (teachers ?? []).filter(
+      (t) => teacherStatuses[t.id],
+    );
+    if (teachersToSave.length === 0) {
+      toast.error("Please mark at least one teacher's attendance");
+      return;
+    }
+    setSavingTeacherAttendance(true);
+    try {
+      await Promise.all(
+        teachersToSave.map((t) =>
+          addTeacherAttendance.mutateAsync({
+            teacherId: t.id,
+            date: dateToBigInt(new Date(teacherDate)),
+            status: teacherStatuses[t.id],
+            notes: "",
+          }),
+        ),
+      );
+      toast.success("Teacher attendance saved");
+      setTeacherStatuses({});
+    } catch {
+      toast.error("Failed to save teacher attendance");
+    } finally {
+      setSavingTeacherAttendance(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Attendance"
-        description="Record and view student attendance"
+        description="Record and view student and teacher attendance"
       />
 
-      <Tabs defaultValue="record">
+      <Tabs defaultValue="student">
         <TabsList className="mb-6" data-ocid="attendance.tab">
-          <TabsTrigger value="record">Record Attendance</TabsTrigger>
+          <TabsTrigger value="student">Student Attendance</TabsTrigger>
+          <TabsTrigger value="teacher">Teacher Attendance</TabsTrigger>
           <TabsTrigger value="history">View History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="record">
+        {/* Student Attendance */}
+        <TabsContent value="student">
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle className="text-base">Take Attendance</CardTitle>
+              <CardTitle className="text-base">
+                Take Student Attendance
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -198,7 +258,7 @@ export default function AttendancePage() {
                   <div className="flex justify-end pt-2">
                     <Button
                       data-ocid="attendance.submit.primary_button"
-                      onClick={handleSubmit}
+                      onClick={handleStudentAttendanceSubmit}
                       disabled={recordAttendance.isPending}
                     >
                       {recordAttendance.isPending && (
@@ -213,6 +273,95 @@ export default function AttendancePage() {
           </Card>
         </TabsContent>
 
+        {/* Teacher Attendance */}
+        <TabsContent value="teacher">
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="text-base">Teacher Attendance</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-w-xs space-y-2">
+                <Label>Date</Label>
+                <Input
+                  data-ocid="attendance.teacher.date.input"
+                  type="date"
+                  value={teacherDate}
+                  onChange={(e) => {
+                    setTeacherDate(e.target.value);
+                    setTeacherStatuses({});
+                  }}
+                />
+              </div>
+
+              {(teachers ?? []).length === 0 ? (
+                <EmptyState
+                  title="No teachers found"
+                  description="Add teachers to mark their attendance"
+                  ocid="attendance.teachers.empty_state"
+                />
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {(teachers ?? []).map((t, i) => {
+                      const currentStatus = getTeacherStatus(t.id);
+                      return (
+                        <div
+                          key={t.id}
+                          data-ocid={`attendance.teacher.item.${i + 1}`}
+                          className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">
+                              {t.firstName} {t.lastName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t.grade ?? "No Grade"}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {["Present", "Absent", "Late"].map((status) => (
+                              <button
+                                key={status}
+                                type="button"
+                                onClick={() => setTeacherStatus(t.id, status)}
+                                className={cn(
+                                  "px-3 py-1 rounded text-xs font-medium border transition-colors",
+                                  currentStatus === status
+                                    ? status === "Present"
+                                      ? "bg-green-100 text-green-800 border-green-300"
+                                      : status === "Absent"
+                                        ? "bg-red-100 text-red-800 border-red-300"
+                                        : "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                    : "bg-muted text-muted-foreground border-border hover:bg-accent",
+                                )}
+                              >
+                                {status}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      data-ocid="attendance.teacher.save.primary_button"
+                      onClick={handleSaveTeacherAttendance}
+                      disabled={savingTeacherAttendance}
+                    >
+                      {savingTeacherAttendance && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Save Teacher Attendance
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* History */}
         <TabsContent value="history">
           <Card className="shadow-card">
             <CardHeader>

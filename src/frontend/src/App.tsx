@@ -2,7 +2,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import AuthGate from "./components/AuthGate";
+import InstallPrompt from "./components/InstallPrompt";
 import Sidebar from "./components/Sidebar";
+import { LocalAuthProvider } from "./hooks/useLocalAuth";
 import AdmissionsPage from "./pages/AdmissionsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AttendancePage from "./pages/AttendancePage";
@@ -16,8 +18,11 @@ import FeeStructuresPage from "./pages/FeeStructuresPage";
 import GradesPage from "./pages/GradesPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import LeaveRequestsPage from "./pages/LeaveRequestsPage";
+import MyAttendancePage from "./pages/MyAttendancePage";
+import MyLeaveRequestsPage from "./pages/MyLeaveRequestsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import PayrollPage from "./pages/PayrollPage";
+import SalarySlipPage from "./pages/SalarySlipPage";
 import SchoolAdminsPage from "./pages/SchoolAdminsPage";
 import SettingsPage from "./pages/SettingsPage";
 import StaffPage from "./pages/StaffPage";
@@ -48,7 +53,10 @@ type Page =
   | "expenses"
   | "school-admins"
   | "user-management"
-  | "settings";
+  | "settings"
+  | "my-leave-requests"
+  | "my-attendance"
+  | "salary-slip";
 
 const MAX_HISTORY = 20;
 
@@ -143,6 +151,12 @@ function MainApp() {
         return <UserManagementPage />;
       case "settings":
         return <SettingsPage />;
+      case "my-leave-requests":
+        return <MyLeaveRequestsPage />;
+      case "my-attendance":
+        return <MyAttendancePage />;
+      case "salary-slip":
+        return <SalarySlipPage />;
       default:
         return <DashboardPage onNavigate={handleNavigate} />;
     }
@@ -185,11 +199,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <>
+    <LocalAuthProvider>
       <AuthGate>
         <MainApp />
       </AuthGate>
       <Toaster richColors position="top-right" />
-    </>
+      <InstallPrompt />
+    </LocalAuthProvider>
   );
 }

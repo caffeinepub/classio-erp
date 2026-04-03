@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DollarSign, Loader2 } from "lucide-react";
+import { IndianRupee, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, PageHeader, StatusBadge } from "../components/shared";
@@ -27,7 +27,7 @@ import {
   useMarkPayrollAsPaid,
   usePayrollByStaff,
 } from "../hooks/useQueries";
-import { formatCurrency } from "../utils/dateUtils";
+import { formatINR } from "../utils/currencyUtils";
 
 const MONTHS = [
   "January",
@@ -110,7 +110,7 @@ export default function PayrollPage() {
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-primary" /> Generate Payroll
+              <IndianRupee className="h-4 w-4 text-primary" /> Generate Payroll
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -167,11 +167,11 @@ export default function PayrollPage() {
               {selectedStaffId && (
                 <p className="text-xs text-muted-foreground">
                   Contracted salary:{" "}
-                  {formatCurrency(selectedStaffMember?.salary ?? BigInt(0))}
+                  {formatINR(selectedStaffMember?.salary ?? BigInt(0))}
                 </p>
               )}
               <div className="space-y-1.5">
-                <Label>Basic Salary (USD)</Label>
+                <Label>Basic Salary (₹)</Label>
                 <Input
                   data-ocid="payroll.basic.input"
                   type="number"
@@ -184,7 +184,7 @@ export default function PayrollPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
-                  <Label>Allowances</Label>
+                  <Label>Allowances (₹)</Label>
                   <Input
                     data-ocid="payroll.allowances.input"
                     type="number"
@@ -195,7 +195,7 @@ export default function PayrollPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Deductions</Label>
+                  <Label>Deductions (₹)</Label>
                   <Input
                     data-ocid="payroll.deductions.input"
                     type="number"
@@ -211,7 +211,7 @@ export default function PayrollPage() {
                   <div className="flex justify-between text-muted-foreground">
                     <span>Net Pay:</span>
                     <span className="font-semibold text-foreground">
-                      {formatCurrency(
+                      {formatINR(
                         BigInt(Number.parseInt(form.basicSalary) || 0) +
                           BigInt(Number.parseInt(form.allowances) || 0) -
                           BigInt(Number.parseInt(form.deductions) || 0),
@@ -284,15 +284,15 @@ export default function PayrollPage() {
                       <TableCell className="font-medium">
                         {MONTHS[Number(r.month) - 1]} {Number(r.year)}
                       </TableCell>
-                      <TableCell>{formatCurrency(r.basicSalary)}</TableCell>
+                      <TableCell>{formatINR(r.basicSalary)}</TableCell>
                       <TableCell className="text-green-600">
-                        +{formatCurrency(r.allowances)}
+                        +{formatINR(r.allowances)}
                       </TableCell>
                       <TableCell className="text-red-500">
-                        -{formatCurrency(r.deductions)}
+                        -{formatINR(r.deductions)}
                       </TableCell>
                       <TableCell className="font-semibold">
-                        {formatCurrency(r.netPay)}
+                        {formatINR(r.netPay)}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={r.isPaid ? "paid" : "unpaid"} />

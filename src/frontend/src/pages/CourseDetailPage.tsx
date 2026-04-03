@@ -38,7 +38,7 @@ import {
   useAssignmentsByCourse,
   useGetCourse,
   useLessonsByCourse,
-  useResourcesByCourse,
+  useResourceLinksByCourse,
 } from "../hooks/useQueries";
 import { bigIntToDateString, dateToBigInt } from "../utils/dateUtils";
 
@@ -74,7 +74,7 @@ export default function CourseDetailPage({
   const { data: assignments, isLoading: assignmentsLoading } =
     useAssignmentsByCourse(courseId);
   const { data: resources, isLoading: resourcesLoading } =
-    useResourcesByCourse(courseId);
+    useResourceLinksByCourse(courseId);
   const addLesson = useAddOrUpdateLesson();
   const addAssignment = useAddOrUpdateAssignment();
   const addResource = useAddResourceLink();

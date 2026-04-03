@@ -21,6 +21,7 @@ import {
   UserCog,
   UserPlus,
   Users,
+  Wallet,
 } from "lucide-react";
 import { useState } from "react";
 import { useLocalAuth } from "../hooks/useLocalAuth";
@@ -122,6 +123,25 @@ const navItems: NavItem[] = [
     icon: ShieldCheck,
     section: "Super Admin",
   },
+  // My Account (teacher self-service)
+  {
+    id: "my-leave-requests",
+    label: "My Leave Requests",
+    icon: FileText,
+    section: "My Account",
+  },
+  {
+    id: "my-attendance",
+    label: "My Attendance",
+    icon: Calendar,
+    section: "My Account",
+  },
+  {
+    id: "salary-slip",
+    label: "Salary Slip",
+    icon: Wallet,
+    section: "My Account",
+  },
 ];
 
 const sections = [
@@ -133,6 +153,7 @@ const sections = [
   "LMS",
   "Administration",
   "Super Admin",
+  "My Account",
 ];
 
 type SidebarProps = {
@@ -183,6 +204,8 @@ function NavSection({
         return hrRoles.includes(userRole ?? "");
       case "Administration":
         return schoolAdminRoles.includes(userRole ?? "");
+      case "My Account":
+        return userRole === "teacher";
       default:
         return true;
     }
@@ -193,6 +216,11 @@ function NavSection({
   const visibleItems = items.filter((item) => {
     if (item.id === "user-management")
       return adminRoles.includes(userRole ?? "");
+    // Teachers: view-only Academic, no admin HR items except leave-requests
+    if (userRole === "teacher") {
+      if (["staff", "departments", "payroll"].includes(item.id)) return false;
+      if (item.id === "leave-requests") return true; // they see their own through LeaveRequestsPage
+    }
     return true;
   });
 

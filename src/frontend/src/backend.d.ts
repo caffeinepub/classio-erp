@@ -21,6 +21,7 @@ export interface Teacher {
     id: Identifier;
     subjects: Subjects;
     isActive: IsActive;
+    grade?: string;
     contactEmail: ContactEmail;
     lastName: string;
     dateOfJoin: DateOfJoin;
@@ -72,6 +73,7 @@ export interface Assignment {
 }
 export interface Student {
     id: Identifier;
+    dob?: bigint;
     isActive: IsActive;
     grade: Grade;
     contactEmail: ContactEmail;
@@ -80,6 +82,15 @@ export interface Student {
     parentName: ParentName;
     contactPhone: ContactPhone;
     firstName: string;
+}
+export interface SalarySlipData {
+    month: bigint;
+    staffId: string;
+    year: bigint;
+    deductions: bigint;
+    netSalary: bigint;
+    allowances: bigint;
+    basicSalary: bigint;
 }
 export type ContentText = string;
 export type ParentName = string;
@@ -132,6 +143,13 @@ export interface Applicant {
     lastName: string;
     firstName: string;
 }
+export interface TeacherAttendance {
+    id: string;
+    status: string;
+    date: bigint;
+    notes: string;
+    teacherId: string;
+}
 export interface Department {
     id: string;
     name: string;
@@ -145,6 +163,14 @@ export interface AttendanceRecordInput {
     presentStudents: Array<Identifier>;
 }
 export type Term = string;
+export interface AttendanceCorrection {
+    id: string;
+    status: string;
+    staffId: string;
+    date: bigint;
+    requestedStatus: string;
+    reason: string;
+}
 export type IsActive = boolean;
 export type AuthorName = string;
 export interface UserProfile {
@@ -169,10 +195,12 @@ export interface Course {
 export interface FeeStructure {
     id: FeeId;
     name: string;
+    feeType: string;
     description: string;
     isActive: IsActive;
     academicYear: string;
     gradeLevel: GradeLevel;
+    feeTypeLabel: string;
     amount: bigint;
 }
 export type Instructions = string;
@@ -248,6 +276,8 @@ export interface backendInterface {
     addOrUpdateDepartment(id: string, name: string, description: string): Promise<string>;
     addOrUpdateLesson(courseId: CourseId, title: Title, contentText: ContentText, orderIndex: OrderIndex): Promise<Identifier>;
     addResourceLink(courseId: string, title: string, url: string, resourceType: string): Promise<string>;
+    addTeacherAttendance(teacherId: string, date: bigint, status: string, notes: string): Promise<string>;
+    approveAttendanceCorrection(id: string): Promise<void>;
     approveLeaveRequest(leaveRequestId: Identifier): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     convertApplicantToStudent(applicantId: string): Promise<Identifier>;
@@ -255,12 +285,12 @@ export interface backendInterface {
     createApplicant(firstName: string, lastName: string, email: string, phone: string, programApplied: string, classApplied: string, dateApplied: bigint, status: string, notes: Notes): Promise<string>;
     createClass(name: Name, teacherId: Identifier, subjects: Subjects): Promise<Identifier>;
     createExpense(category: string, description: string, amount: bigint, date: bigint, approvedBy: string): Promise<string>;
-    createFeeStructure(name: string, description: string, amount: bigint, gradeLevel: GradeLevel, academicYear: string, isActive: IsActive): Promise<string>;
+    createFeeStructure(name: string, description: string, amount: bigint, gradeLevel: GradeLevel, academicYear: string, feeType: string, feeTypeLabel: string, isActive: IsActive): Promise<string>;
     createPayment(invoiceId: string, studentId: Identifier, amount: bigint, paymentDate: bigint, method: string, notes: string): Promise<string>;
     createStaff(firstName: string, lastName: string, position: Position, departmentId: DepartmentId, employmentType: EmploymentType, salary: Salary, contactEmail: ContactEmail, contactPhone: ContactPhone, hireDate: HireDate, isActive: IsActive): Promise<Identifier>;
-    createStudent(firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, isActive: IsActive): Promise<Identifier>;
+    createStudent(firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, dob: bigint | null, isActive: IsActive): Promise<Identifier>;
     createStudentInvoice(studentId: Identifier, feeStructureId: string, amount: bigint, dueDate: bigint, status: string, issuedDate: bigint): Promise<string>;
-    createTeacher(firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, isActive: IsActive): Promise<Identifier>;
+    createTeacher(firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, grade: string | null, isActive: IsActive): Promise<Identifier>;
     deleteApplicant(id: string): Promise<void>;
     deleteClass(id: Identifier): Promise<void>;
     deleteCourse(id: string): Promise<void>;
@@ -317,14 +347,17 @@ export interface backendInterface {
     getGradesBySubject(subject: Subject): Promise<Array<GradeRecord>>;
     getLeaveRequest(id: Identifier): Promise<LeaveRequest>;
     getLeaveRequestsByStaff(staffId: string): Promise<Array<LeaveRequest>>;
+    getLeaveRequestsByStaffId(staffId: string): Promise<Array<LeaveRequest>>;
     getLesson(id: Identifier): Promise<Lesson>;
     getLessonsByCourse(courseId: CourseId): Promise<Array<Lesson>>;
     getOverdueInvoices(): Promise<Array<StudentInvoice>>;
     getPayment(id: string): Promise<Payment>;
     getPayrollRecord(id: string): Promise<PayrollRecord>;
     getPayrollRecordsByStaff(staffId: string): Promise<Array<PayrollRecord>>;
+    getPendingAttendanceCorrections(): Promise<Array<AttendanceCorrection>>;
     getPendingLeaveRequests(): Promise<Array<LeaveRequest>>;
     getResourceLinksByCourse(courseId: string): Promise<Array<ResourceLink>>;
+    getSalarySlipData(staffId: string): Promise<SalarySlipData | null>;
     getSchoolProfile(): Promise<SchoolProfile>;
     getStaff(id: Identifier): Promise<Staff>;
     getStudent(id: Identifier): Promise<Student>;
@@ -335,6 +368,8 @@ export interface backendInterface {
     getSubmissionsByAssignment(assignmentId: Identifier): Promise<Array<AssignmentSubmission>>;
     getSubmissionsByStudent(studentId: Identifier): Promise<Array<AssignmentSubmission>>;
     getTeacher(id: Identifier): Promise<Teacher>;
+    getTeacherAttendanceByDate(date: bigint): Promise<Array<TeacherAttendance>>;
+    getTeacherAttendanceByTeacher(teacherId: string): Promise<Array<TeacherAttendance>>;
     getTotalExpenses(): Promise<bigint>;
     getTotalFeesCollected(): Promise<bigint>;
     getUnpaidInvoices(): Promise<Array<StudentInvoice>>;
@@ -344,19 +379,21 @@ export interface backendInterface {
     markPayrollAsPaid(payrollId: string): Promise<void>;
     recordAttendance(attendanceInput: AttendanceRecordInput): Promise<string>;
     recordGrade(studentId: Identifier, subject: Subject, term: Term, score: Score, remarks: Remarks): Promise<string>;
+    rejectAttendanceCorrection(id: string): Promise<void>;
     rejectLeaveRequest(leaveRequestId: Identifier): Promise<void>;
     removeStudentFromClass(classId: Identifier, studentId: Identifier): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     submitAssignment(assignmentId: Identifier, studentId: Identifier, submissionText: string): Promise<string>;
+    submitAttendanceCorrection(staffId: string, date: bigint, requestedStatus: string, reason: string): Promise<string>;
     submitLeaveRequest(staffId: StaffId, leaveType: LeaveType, startDate: StartDate, endDate: EndDate, reason: Reason): Promise<Identifier>;
     updateApplicant(id: string, firstName: string, lastName: string, email: string, phone: string, programApplied: string, classApplied: string, dateApplied: bigint, status: string, notes: Notes): Promise<string>;
     updateApplicantStatus(id: string, status: string): Promise<void>;
     updateClass(id: Identifier, name: Name, teacherId: Identifier, subjects: Subjects): Promise<Identifier>;
     updateExpense(id: string, category: string, description: string, amount: bigint, date: bigint, approvedBy: string): Promise<string>;
-    updateFeeStructure(id: string, name: string, description: string, amount: bigint, gradeLevel: GradeLevel, academicYear: string, isActive: IsActive): Promise<string>;
+    updateFeeStructure(id: string, name: string, description: string, amount: bigint, gradeLevel: GradeLevel, academicYear: string, feeType: string, feeTypeLabel: string, isActive: IsActive): Promise<string>;
     updatePayment(id: string, invoiceId: string, studentId: Identifier, amount: bigint, paymentDate: bigint, method: string, notes: string): Promise<string>;
     updateStaff(id: Identifier, firstName: string, lastName: string, position: Position, departmentId: DepartmentId, employmentType: EmploymentType, salary: Salary, contactEmail: ContactEmail, contactPhone: ContactPhone, hireDate: HireDate, isActive: IsActive): Promise<Identifier>;
-    updateStudent(id: Identifier, firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, isActive: IsActive): Promise<Identifier>;
+    updateStudent(id: Identifier, firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, dob: bigint | null, isActive: IsActive): Promise<Identifier>;
     updateStudentInvoice(id: string, studentId: Identifier, feeStructureId: string, amount: bigint, dueDate: bigint, status: string, issuedDate: bigint): Promise<string>;
-    updateTeacher(id: Identifier, firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, isActive: IsActive): Promise<Identifier>;
+    updateTeacher(id: Identifier, firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, grade: string | null, isActive: IsActive): Promise<Identifier>;
 }

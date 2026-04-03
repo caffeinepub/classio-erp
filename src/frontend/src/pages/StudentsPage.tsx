@@ -8,6 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -18,8 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Loader2, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Student } from "../backend.d";
 import {
@@ -44,6 +51,7 @@ type StudentForm = {
   contactPhone: string;
   parentName: string;
   enrollmentDate: string;
+  dob: string;
   isActive: boolean;
 };
 
@@ -55,8 +63,46 @@ const emptyForm: StudentForm = {
   contactPhone: "",
   parentName: "",
   enrollmentDate: new Date().toISOString().split("T")[0],
+  dob: "",
   isActive: true,
 };
+
+// Simple CSV parser handling quoted fields
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return [];
+  const headers = lines[0]
+    .split(",")
+    .map((h) => h.trim().replace(/^"|"$/g, ""));
+  return lines.slice(1).map((line) => {
+    const values: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        values.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    values.push(current.trim());
+    const row: Record<string, string> = {};
+    headers.forEach((h, idx) => {
+      row[h] = values[idx] ?? "";
+    });
+    return row;
+  });
+}
+
+const STUDENT_CSV_HEADERS =
+  "firstName,lastName,grade,contactEmail,contactPhone,parentName,enrollmentDate,dob";
+const STUDENT_CSV_SAMPLE =
+  "Arjun,Sharma,5,arjun.sharma@example.com,9876543210,Ramesh Sharma,2024-06-01,2014-03-15\n" +
+  "Priya,Patel,3,priya.patel@example.com,9123456780,Suresh Patel,2024-06-01,2016-08-20";
 
 export default function StudentsPage() {
   const { data: students, isLoading } = useAllStudents();
@@ -69,6 +115,17 @@ export default function StudentsPage() {
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [form, setForm] = useState<StudentForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Bulk upload state
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState<Record<string, string>[]>([]);
+  const [bulkProgress, setBulkProgress] = useState<{
+    done: number;
+    total: number;
+    running: boolean;
+    failed: number;
+  } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const filtered = (students ?? []).filter(
     (s) =>
@@ -87,6 +144,9 @@ export default function StudentsPage() {
   const openEdit = (s: Student) => {
     setEditStudent(s);
     const date = new Date(Number(s.enrollmentDate / BigInt(1_000_000)));
+    const dobStr = s.dob
+      ? new Date(Number(s.dob / BigInt(1_000_000))).toISOString().split("T")[0]
+      : "";
     setForm({
       firstName: s.firstName,
       lastName: s.lastName,
@@ -95,6 +155,7 @@ export default function StudentsPage() {
       contactPhone: s.contactPhone,
       parentName: s.parentName,
       enrollmentDate: date.toISOString().split("T")[0],
+      dob: dobStr,
       isActive: s.isActive,
     });
     setModalOpen(true);
@@ -110,6 +171,7 @@ export default function StudentsPage() {
       contactPhone: form.contactPhone,
       parentName: form.parentName,
       enrollmentDate: dateToBigInt(new Date(form.enrollmentDate)),
+      dob: form.dob ? dateToBigInt(new Date(form.dob)) : null,
       isActive: form.isActive,
     };
     try {
@@ -137,6 +199,72 @@ export default function StudentsPage() {
     }
   };
 
+  const downloadTemplate = () => {
+    const csv = `${STUDENT_CSV_HEADERS}\n${STUDENT_CSV_SAMPLE}`;
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "students_template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const rows = parseCSV(text);
+      setBulkRows(rows);
+      setBulkProgress(null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkImport = async () => {
+    if (bulkRows.length === 0) return;
+    setBulkProgress({
+      done: 0,
+      total: bulkRows.length,
+      running: true,
+      failed: 0,
+    });
+    let failed = 0;
+    for (let i = 0; i < bulkRows.length; i++) {
+      const row = bulkRows[i];
+      try {
+        const enrollDate = row.enrollmentDate
+          ? dateToBigInt(new Date(row.enrollmentDate))
+          : dateToBigInt(new Date());
+        const dob = row.dob ? dateToBigInt(new Date(row.dob)) : null;
+        await createStudent.mutateAsync({
+          firstName: row.firstName ?? "",
+          lastName: row.lastName ?? "",
+          grade: BigInt(Number.parseInt(row.grade) || 1),
+          contactEmail: row.contactEmail ?? "",
+          contactPhone: row.contactPhone ?? "",
+          parentName: row.parentName ?? "",
+          enrollmentDate: enrollDate,
+          dob,
+          isActive: true,
+        });
+      } catch {
+        failed++;
+      }
+      setBulkProgress({
+        done: i + 1,
+        total: bulkRows.length,
+        running: i + 1 < bulkRows.length,
+        failed,
+      });
+    }
+    toast.success(
+      `Import complete: ${bulkRows.length - failed} imported, ${failed} failed.`,
+    );
+  };
+
   const isPending = createStudent.isPending || updateStudent.isPending;
 
   return (
@@ -145,9 +273,25 @@ export default function StudentsPage() {
         title="Students"
         description="Manage student enrollment and records"
         actions={
-          <Button data-ocid="students.add.primary_button" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" /> Add Student
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              data-ocid="students.bulk.upload_button"
+              variant="outline"
+              onClick={() => {
+                setBulkRows([]);
+                setBulkProgress(null);
+                setBulkOpen(true);
+              }}
+            >
+              <Upload className="h-4 w-4 mr-2" /> Bulk Upload
+            </Button>
+            <Button
+              data-ocid="students.add.primary_button"
+              onClick={openCreate}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Student
+            </Button>
+          </div>
         }
       />
 
@@ -170,6 +314,7 @@ export default function StudentsPage() {
             <TableRow className="bg-muted/50">
               <TableHead>Name</TableHead>
               <TableHead>Grade</TableHead>
+              <TableHead>DOB</TableHead>
               <TableHead>Contact Email</TableHead>
               <TableHead>Parent</TableHead>
               <TableHead>Enrolled</TableHead>
@@ -179,20 +324,20 @@ export default function StudentsPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              ["s1", "s2", "s3", "s4", "s5"].slice(0, 5).map((sk) => (
+              ["s1", "s2", "s3", "s4", "s5"].map((sk) => (
                 <TableRow key={sk}>
-                  {["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"]
-                    .slice(0, 7)
-                    .map((ck) => (
+                  {["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"].map(
+                    (ck) => (
                       <TableCell key={ck}>
                         <Skeleton className="h-5 w-full" />
                       </TableCell>
-                    ))}
+                    ),
+                  )}
                 </TableRow>
               ))
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={8}>
                   <EmptyState
                     title="No students found"
                     description={
@@ -223,6 +368,9 @@ export default function StudentsPage() {
                     {s.firstName} {s.lastName}
                   </TableCell>
                   <TableCell>Grade {Number(s.grade)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {s.dob ? bigIntToDateString(s.dob) : "—"}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {s.contactEmail}
                   </TableCell>
@@ -260,7 +408,7 @@ export default function StudentsPage() {
         </Table>
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent data-ocid="students.modal" className="max-w-lg">
           <DialogHeader>
@@ -309,16 +457,27 @@ export default function StudentsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Enrollment Date</Label>
+                <Label>Date of Birth</Label>
                 <Input
-                  data-ocid="students.modal.enrollmentdate.input"
+                  data-ocid="students.modal.dob.input"
                   type="date"
-                  value={form.enrollmentDate}
+                  value={form.dob}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, enrollmentDate: e.target.value }))
+                    setForm((f) => ({ ...f, dob: e.target.value }))
                   }
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Enrollment Date</Label>
+              <Input
+                data-ocid="students.modal.enrollmentdate.input"
+                type="date"
+                value={form.enrollmentDate}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, enrollmentDate: e.target.value }))
+                }
+              />
             </div>
             <div className="space-y-2">
               <Label>Contact Email</Label>
@@ -378,6 +537,115 @@ export default function StudentsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Upload Modal */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent data-ocid="students.bulk.dialog" className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Bulk Upload Students</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                Download CSV Template
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Columns: firstName, lastName, grade, contactEmail, contactPhone,
+                parentName, enrollmentDate, dob
+              </span>
+            </div>
+            <div>
+              <Label>Upload CSV File</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv"
+                className="mt-1 block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded file:border file:border-border file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-accent cursor-pointer"
+                onChange={handleFileChange}
+                data-ocid="students.bulk.upload_button"
+              />
+            </div>
+            {bulkRows.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-2">
+                  {bulkRows.length} rows ready to import
+                </p>
+                <div className="max-h-48 overflow-y-auto rounded border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>First Name</TableHead>
+                        <TableHead>Last Name</TableHead>
+                        <TableHead>Grade</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>DOB</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bulkRows.slice(0, 10).map((row) => (
+                        <TableRow
+                          key={`${row.firstName}-${row.lastName}-${row.contactEmail}`}
+                        >
+                          <TableCell>{row.firstName}</TableCell>
+                          <TableCell>{row.lastName}</TableCell>
+                          <TableCell>{row.grade}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {row.contactEmail}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {row.dob}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {bulkRows.length > 10 && (
+                    <p className="text-xs text-muted-foreground p-2">
+                      ...and {bulkRows.length - 10} more rows
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            {bulkProgress && (
+              <div className="bg-muted rounded p-3 text-sm">
+                {bulkProgress.running ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Importing {bulkProgress.done}/{bulkProgress.total}...
+                  </span>
+                ) : (
+                  <span className="text-success font-medium">
+                    Done: {bulkProgress.total - bulkProgress.failed} imported,{" "}
+                    {bulkProgress.failed} failed.
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              data-ocid="students.bulk.cancel_button"
+              onClick={() => setBulkOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              data-ocid="students.bulk.submit_button"
+              onClick={handleBulkImport}
+              disabled={
+                bulkRows.length === 0 || (bulkProgress?.running ?? false)
+              }
+            >
+              {bulkProgress?.running && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Import All ({bulkRows.length})
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

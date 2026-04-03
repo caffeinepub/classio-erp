@@ -10,29 +10,104 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   CheckCircle2,
   Info,
   Loader2,
   ShieldCheck,
+  Trash2,
   UserPlus,
-  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "../components/shared";
 import { useLocalAuth } from "../hooks/useLocalAuth";
 
+type RegisteredUser = {
+  username: string;
+  role: string;
+  name: string;
+  password: string;
+};
+
+function getRegisteredUsers(): RegisteredUser[] {
+  try {
+    const raw = localStorage.getItem("classio_registered_users");
+    if (!raw) return [];
+    const map = JSON.parse(raw) as Record<
+      string,
+      { password: string; role: string; name: string }
+    >;
+    return Object.entries(map).map(([username, data]) => ({
+      username,
+      ...data,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function deleteRegisteredUser(username: string) {
+  try {
+    const raw = localStorage.getItem("classio_registered_users");
+    if (!raw) return;
+    const map = JSON.parse(raw) as Record<string, unknown>;
+    delete map[username.toLowerCase()];
+    localStorage.setItem("classio_registered_users", JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
+
+const ROLE_BADGE_COLORS: Record<string, string> = {
+  superadmin: "bg-destructive/10 text-destructive border-destructive/30",
+  schooladmin: "bg-primary/10 text-primary border-primary/30",
+  teacher: "bg-success/10 text-success border-success/30",
+  hr: "bg-warning/10 text-warning border-warning/30",
+};
+
 export default function SchoolAdminsPage() {
   const { user, registerUser } = useLocalAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [selectedRole, setSelectedRole] = useState("");
   const [isGranting, setIsGranting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const myRole = user?.role ?? "unknown";
+  const isSuper = myRole === "superadmin";
+  const isSchoolAdmin = myRole === "schooladmin";
 
-  const handleCreateAdmin = async () => {
-    if (!username.trim() || !password.trim() || !name.trim()) {
+  // Roles that the current user can create
+  const creatableRoles = isSuper
+    ? [
+        { value: "schooladmin", label: "School Admin" },
+        { value: "teacher", label: "Teacher" },
+        { value: "hr", label: "HR Manager" },
+      ]
+    : isSchoolAdmin
+      ? [
+          { value: "teacher", label: "Teacher" },
+          { value: "hr", label: "HR Manager" },
+        ]
+      : [];
+
+  const pageTitle = isSchoolAdmin
+    ? "User Management"
+    : "School Admin Management";
+  const pageDesc = isSchoolAdmin
+    ? "Create and manage Teacher and HR accounts"
+    : "Super Admin panel \u2014 create and manage all user accounts";
+
+  const handleCreate = async () => {
+    if (!username.trim() || !password.trim() || !name.trim() || !selectedRole) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -41,40 +116,49 @@ export default function SchoolAdminsPage() {
       const result = registerUser(
         username.trim(),
         password.trim(),
-        "schooladmin",
+        selectedRole,
         name.trim(),
       );
       if (result.success) {
-        toast.success(`School admin '${username}' created successfully!`);
+        toast.success(
+          `Account '${username}' (${selectedRole}) created successfully!`,
+        );
         setUsername("");
         setPassword("");
         setName("");
+        setSelectedRole("");
+        setRefreshKey((k) => k + 1);
       } else {
-        toast.error(result.error ?? "Failed to create admin");
+        toast.error(result.error ?? "Failed to create account");
       }
       setIsGranting(false);
     }, 300);
   };
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto animate-fade-in">
-      <PageHeader
-        title="School Admin Management"
-        description="Super Admin panel — create and manage school administrator accounts"
-      />
+  const handleDelete = (uname: string) => {
+    deleteRegisteredUser(uname);
+    toast.success(`User '${uname}' removed`);
+    setRefreshKey((k) => k + 1);
+  };
 
-      {/* Info Alert */}
+  // Re-read users list using refreshKey as dependency
+  const usersList = refreshKey >= 0 ? getRegisteredUsers() : [];
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto animate-fade-in">
+      <PageHeader title={pageTitle} description={pageDesc} />
+
+      {/* Info */}
       <div className="flex items-start gap-3 p-4 rounded-lg border border-primary/20 bg-primary/5 mb-6">
         <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
         <div>
           <p className="text-sm font-medium text-foreground">
-            About School Admins
+            {isSchoolAdmin ? "User Management" : "About User Roles"}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            School Admins can manage students, teachers, attendance, grades, HR,
-            and finance modules. Only Super Admins can create School Admin
-            accounts. Create an account below and share the credentials with the
-            school administrator.
+            {isSchoolAdmin
+              ? "As a School Admin, you can create Teacher and HR accounts. Share credentials with the respective staff."
+              : "Super Admins can create School Admin, Teacher, and HR accounts. School Admins can create Teacher and HR accounts."}
           </p>
         </div>
       </div>
@@ -93,12 +177,14 @@ export default function SchoolAdminsPage() {
             <div>
               <Label className="text-xs text-muted-foreground">Username</Label>
               <p className="text-xs font-mono bg-muted rounded px-2 py-1.5 mt-1">
-                {user?.username ?? "—"}
+                {user?.username ?? "\u2014"}
               </p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Name</Label>
-              <p className="text-sm font-medium mt-0.5">{user?.name ?? "—"}</p>
+              <p className="text-sm font-medium mt-0.5">
+                {user?.name ?? "\u2014"}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground">
@@ -114,68 +200,147 @@ export default function SchoolAdminsPage() {
           </CardContent>
         </Card>
 
-        {/* Create School Admin */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <UserPlus className="h-4 w-4 text-primary" />
-              Create School Admin
-            </CardTitle>
-            <CardDescription>
-              Create a new school admin account with username and password
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Full Name *</Label>
-              <Input
-                data-ocid="school_admins.name_input"
-                placeholder="e.g. Rajesh Kumar"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Username *</Label>
-              <Input
-                data-ocid="school_admins.input"
-                placeholder="e.g. schooladmin1"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Password *</Label>
-              <Input
-                data-ocid="school_admins.password_input"
-                type="password"
-                placeholder="Set a strong password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <Button
-              data-ocid="school_admins.primary_button"
-              onClick={handleCreateAdmin}
-              disabled={
-                isGranting ||
-                !username.trim() ||
-                !password.trim() ||
-                !name.trim()
-              }
-              className="w-full gap-2"
-            >
-              {isGranting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
-              )}
-              {isGranting ? "Creating..." : "Create School Admin Account"}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Create User */}
+        {creatableRoles.length > 0 && (
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <UserPlus className="h-4 w-4 text-primary" />
+                Create User Account
+              </CardTitle>
+              <CardDescription>
+                Create a new account with username and password
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Role *</Label>
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger data-ocid="school_admins.role.select">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {creatableRoles.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>
+                        {r.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Full Name *</Label>
+                <Input
+                  data-ocid="school_admins.name_input"
+                  placeholder="e.g. Rajesh Kumar"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Username *</Label>
+                <Input
+                  data-ocid="school_admins.input"
+                  placeholder="e.g. teacher1"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Password *</Label>
+                <Input
+                  data-ocid="school_admins.password_input"
+                  type="password"
+                  placeholder="Set a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button
+                data-ocid="school_admins.primary_button"
+                onClick={handleCreate}
+                disabled={
+                  isGranting ||
+                  !username.trim() ||
+                  !password.trim() ||
+                  !name.trim() ||
+                  !selectedRole
+                }
+                className="w-full gap-2"
+              >
+                {isGranting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                {isGranting ? "Creating..." : "Create Account"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Users List */}
+      <Card className="shadow-card mt-6">
+        <CardHeader>
+          <CardTitle className="text-base">All Created Accounts</CardTitle>
+          <CardDescription>
+            Accounts created via this panel ({usersList.length} total)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {usersList.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No accounts created yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {usersList.map((u) => (
+                <div
+                  key={u.username}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                      <span className="text-primary text-sm font-semibold">
+                        {u.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{u.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        @{u.username}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`capitalize text-xs ${ROLE_BADGE_COLORS[u.role] ?? ""}`}
+                    >
+                      {u.role === "hr"
+                        ? "HR Manager"
+                        : u.role === "schooladmin"
+                          ? "School Admin"
+                          : u.role}
+                    </Badge>
+                    <button
+                      type="button"
+                      data-ocid="school_admins.user.delete_button"
+                      onClick={() => handleDelete(u.username)}
+                      className="p-1.5 rounded hover:bg-red-50 transition-colors text-muted-foreground hover:text-destructive"
+                      title="Remove user"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Role Access Guide */}
       <Card className="shadow-card mt-6">
@@ -194,7 +359,7 @@ export default function SchoolAdminsPage() {
                 bg: "bg-destructive/5 border-destructive/20",
                 permissions: [
                   "All modules",
-                  "Create school admins",
+                  "Create all user types",
                   "User management",
                   "Full system access",
                 ],
@@ -208,6 +373,7 @@ export default function SchoolAdminsPage() {
                   "Attendance & Grades",
                   "HR Management",
                   "Finance & Admissions",
+                  "Create Teacher/HR accounts",
                 ],
               },
               {
@@ -216,9 +382,10 @@ export default function SchoolAdminsPage() {
                 bg: "bg-success/5 border-success/20",
                 permissions: [
                   "LMS (Courses)",
-                  "Assignments",
-                  "Announcements",
-                  "View attendance",
+                  "View students/classes",
+                  "Leave requests",
+                  "Attendance correction",
+                  "Salary slip download",
                 ],
               },
             ].map((r) => (

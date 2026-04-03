@@ -8,11 +8,11 @@ import Text "mo:core/Text";
 import Int "mo:core/Int";
 import Iter "mo:core/Iter";
 import Time "mo:core/Time";
+import Migration "migration";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-
-
+(with migration = Migration.run)
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -105,6 +105,7 @@ actor {
     contactPhone : Student.ContactPhone;
     parentName : Student.ParentName;
     enrollmentDate : Student.EnrollmentDate;
+    dob : ?Int;
     isActive : Student.IsActive;
   };
   let students = Map.empty<Text, Student>();
@@ -117,6 +118,7 @@ actor {
     contactPhone : Student.ContactPhone,
     parentName : Student.ParentName,
     enrollmentDate : Student.EnrollmentDate,
+    dob : ?Int,
     isActive : Student.IsActive,
   ) : async Student.Identifier {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
@@ -131,6 +133,7 @@ actor {
       contactPhone;
       parentName;
       enrollmentDate;
+      dob;
       isActive;
     };
     students.add(newStudent.id, newStudent);
@@ -146,6 +149,7 @@ actor {
     contactPhone : Student.ContactPhone,
     parentName : Student.ParentName,
     enrollmentDate : Student.EnrollmentDate,
+    dob : ?Int,
     isActive : Student.IsActive,
   ) : async Student.Identifier {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
@@ -161,6 +165,7 @@ actor {
       contactPhone;
       parentName;
       enrollmentDate;
+      dob;
       isActive;
     };
     students.add(id, updatedStudent);
@@ -229,6 +234,7 @@ actor {
     public type ContactPhone = Text;
     public type DateOfJoin = Int;
     public type IsActive = Bool;
+    public type Grade = Text;
   };
   type Teacher = {
     id : Teacher.Identifier;
@@ -238,6 +244,7 @@ actor {
     contactEmail : Teacher.ContactEmail;
     contactPhone : Teacher.ContactPhone;
     dateOfJoin : Teacher.DateOfJoin;
+    grade : ?Text;
     isActive : Teacher.IsActive;
   };
   let teachers = Map.empty<Text, Teacher>();
@@ -249,6 +256,7 @@ actor {
     contactEmail : Teacher.ContactEmail,
     contactPhone : Teacher.ContactPhone,
     dateOfJoin : Teacher.DateOfJoin,
+    grade : ?Text,
     isActive : Teacher.IsActive,
   ) : async Teacher.Identifier {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
@@ -262,6 +270,7 @@ actor {
       contactEmail;
       contactPhone;
       dateOfJoin;
+      grade;
       isActive;
     };
     teachers.add(newTeacher.id, newTeacher);
@@ -276,6 +285,7 @@ actor {
     contactEmail : Teacher.ContactEmail,
     contactPhone : Teacher.ContactPhone,
     dateOfJoin : Teacher.DateOfJoin,
+    grade : ?Text,
     isActive : Teacher.IsActive,
   ) : async Teacher.Identifier {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
@@ -290,6 +300,7 @@ actor {
       contactEmail;
       contactPhone;
       dateOfJoin;
+      grade;
       isActive;
     };
     teachers.add(id, updatedTeacher);
@@ -465,6 +476,70 @@ actor {
     };
     attendanceRecords.values().toArray().filter(func(record) {
       record.classId == classId and record.date == date
+    });
+  };
+
+  // ============================================
+  // TEACHER ATTENDANCE MODULE
+  // ============================================
+  type TeacherAttendance = {
+    id : Text;
+    teacherId : Text;
+    date : Int;
+    status : Text;
+    notes : Text;
+  };
+  let teacherAttendanceRecords = Map.empty<Text, TeacherAttendance>();
+
+  public shared ({ caller }) func addTeacherAttendance(
+    teacherId : Text,
+    date : Int,
+    status : Text,
+    notes : Text,
+  ) : async Text {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can add teacher attendance");
+    };
+    let id = teacherId # date.toText();
+    let newRecord : TeacherAttendance = {
+      id;
+      teacherId;
+      date;
+      status;
+      notes;
+    };
+    teacherAttendanceRecords.add(id, newRecord);
+    id;
+  };
+
+  public query ({ caller }) func getTeacherAttendanceByDate(date : Int) : async [TeacherAttendance] {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view teacher attendance");
+    };
+    teacherAttendanceRecords.values().toArray().filter(func(record) {
+      record.date == date
+    });
+  };
+
+  public query ({ caller }) func getTeacherAttendanceByTeacher(teacherId : Text) : async [TeacherAttendance] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view teacher attendance");
+    };
+    // Teachers can only view their own attendance
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.role == "teacher" and profile.linkedId != ?teacherId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Teachers can only view their own attendance");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
+    teacherAttendanceRecords.values().toArray().filter(func(record) {
+      record.teacherId == teacherId
     });
   };
 
@@ -903,6 +978,28 @@ actor {
     });
   };
 
+  public query ({ caller }) func getLeaveRequestsByStaffId(staffId : Text) : async [LeaveRequest] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view leave requests");
+    };
+    // Staff can only view their own requests
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own leave requests");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
+    leaveRequests.values().toArray().filter(func(request) {
+      request.staffId == staffId
+    });
+  };
+
   public query ({ caller }) func getPendingLeaveRequests() : async [LeaveRequest] {
     if (not hasAppRole(caller, "hr")) {
       Runtime.trap("Unauthorized: Only HR and above can view pending leave requests");
@@ -1005,6 +1102,149 @@ actor {
     payrollRecords.values().toArray().filter(func(record) {
       record.staffId == staffId
     });
+  };
+
+  // ============================================
+  // SALARY SLIP DATA
+  // ============================================
+  public type SalarySlipData = {
+    staffId : Text;
+    month : Nat;
+    year : Nat;
+    basicSalary : Nat;
+    allowances : Nat;
+    deductions : Nat;
+    netSalary : Nat;
+  };
+
+  public query ({ caller }) func getSalarySlipData(staffId : Text) : async ?SalarySlipData {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view salary slip data");
+    };
+    // Staff can only view their own salary slip
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own salary slip");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
+    
+    // Get the most recent payroll record for this staff member
+    let staffPayrolls = payrollRecords.values().toArray().filter(func(record) {
+      record.staffId == staffId
+    });
+    
+    if (staffPayrolls.size() == 0) {
+      return null;
+    };
+    
+    // Return the first one (in a real system, you'd sort by date)
+    let payroll = staffPayrolls[0];
+    ?{
+      staffId = payroll.staffId;
+      month = payroll.month;
+      year = payroll.year;
+      basicSalary = payroll.basicSalary;
+      allowances = payroll.allowances;
+      deductions = payroll.deductions;
+      netSalary = payroll.netPay;
+    };
+  };
+
+  // ============================================
+  // ATTENDANCE CORRECTION REQUESTS
+  // ============================================
+  type AttendanceCorrection = {
+    id : Text;
+    staffId : Text;
+    date : Int;
+    requestedStatus : Text;
+    reason : Text;
+    status : Text;
+  };
+  let attendanceCorrections = Map.empty<Text, AttendanceCorrection>();
+
+  public shared ({ caller }) func submitAttendanceCorrection(
+    staffId : Text,
+    date : Int,
+    requestedStatus : Text,
+    reason : Text,
+  ) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can submit attendance corrections");
+    };
+    // Staff can only submit their own corrections
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?staffId and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Can only submit corrections for yourself");
+        };
+      };
+      case (null) {
+        if (not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
+    
+    let id = staffId # date.toText();
+    let newCorrection : AttendanceCorrection = {
+      id;
+      staffId;
+      date;
+      requestedStatus;
+      reason;
+      status = "pending";
+    };
+    attendanceCorrections.add(id, newCorrection);
+    id;
+  };
+
+  public query ({ caller }) func getPendingAttendanceCorrections() : async [AttendanceCorrection] {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view pending attendance corrections");
+    };
+    attendanceCorrections.values().toArray().filter(func(correction) {
+      correction.status == "pending"
+    });
+  };
+
+  public shared ({ caller }) func approveAttendanceCorrection(id : Text) : async () {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can approve attendance corrections");
+    };
+    let correction = getElem(attendanceCorrections, id);
+    let updatedCorrection : AttendanceCorrection = {
+      id = correction.id;
+      staffId = correction.staffId;
+      date = correction.date;
+      requestedStatus = correction.requestedStatus;
+      reason = correction.reason;
+      status = "approved";
+    };
+    attendanceCorrections.add(id, updatedCorrection);
+  };
+
+  public shared ({ caller }) func rejectAttendanceCorrection(id : Text) : async () {
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can reject attendance corrections");
+    };
+    let correction = getElem(attendanceCorrections, id);
+    let updatedCorrection : AttendanceCorrection = {
+      id = correction.id;
+      staffId = correction.staffId;
+      date = correction.date;
+      requestedStatus = correction.requestedStatus;
+      reason = correction.reason;
+      status = "rejected";
+    };
+    attendanceCorrections.add(id, updatedCorrection);
   };
 
   type Course = {
@@ -1461,6 +1701,7 @@ actor {
           contactPhone = applicant.phone;
           parentName = "";
           enrollmentDate = Time.now();
+          dob = null;
           isActive = true;
         };
         students.add(newStudent.id, newStudent);
@@ -1482,6 +1723,7 @@ actor {
     public type GradeLevel = Text;
     public type Year = Text;
     public type IsActive = Bool;
+    public type OtherLabel = Text;
   };
 
   type FeeStructure = {
@@ -1491,6 +1733,8 @@ actor {
     amount : Nat;
     gradeLevel : Finance.GradeLevel;
     academicYear : Text;
+    feeType : Text;
+    feeTypeLabel : Text;
     isActive : Finance.IsActive;
   };
   let feeStructures = Map.empty<Text, FeeStructure>();
@@ -1501,6 +1745,8 @@ actor {
     amount : Nat,
     gradeLevel : Finance.GradeLevel,
     academicYear : Text,
+    feeType : Text,
+    feeTypeLabel : Text,
     isActive : Finance.IsActive,
   ) : async Text {
     if (not hasAppRole(caller, "hr")) {
@@ -1513,6 +1759,8 @@ actor {
       amount;
       gradeLevel;
       academicYear;
+      feeType;
+      feeTypeLabel;
       isActive;
     };
     feeStructures.add(newFeeStructure.id, newFeeStructure);
@@ -1526,6 +1774,8 @@ actor {
     amount : Nat,
     gradeLevel : Finance.GradeLevel,
     academicYear : Text,
+    feeType : Text,
+    feeTypeLabel : Text,
     isActive : Finance.IsActive,
   ) : async Text {
     if (not hasAppRole(caller, "hr")) {
@@ -1538,6 +1788,8 @@ actor {
       amount;
       gradeLevel;
       academicYear;
+      feeType;
+      feeTypeLabel;
       isActive;
     };
     feeStructures.add(id, updatedFeeStructure);

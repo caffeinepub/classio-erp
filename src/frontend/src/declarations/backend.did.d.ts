@@ -48,6 +48,14 @@ export interface AssignmentSubmission {
   'assignmentId' : Identifier,
   'submissionText' : string,
 }
+export interface AttendanceCorrection {
+  'id' : string,
+  'status' : string,
+  'staffId' : string,
+  'date' : bigint,
+  'requestedStatus' : string,
+  'reason' : string,
+}
 export interface AttendanceRecord {
   'absentStudents' : Array<Identifier>,
   'date' : bigint,
@@ -104,10 +112,12 @@ export type FeeId = string;
 export interface FeeStructure {
   'id' : FeeId,
   'name' : string,
+  'feeType' : string,
   'description' : string,
   'isActive' : IsActive,
   'academicYear' : string,
   'gradeLevel' : GradeLevel,
+  'feeTypeLabel' : string,
   'amount' : bigint,
 }
 export type Grade = bigint;
@@ -176,6 +186,15 @@ export interface ResourceLink {
   'courseId' : string,
 }
 export type Salary = bigint;
+export interface SalarySlipData {
+  'month' : bigint,
+  'staffId' : string,
+  'year' : bigint,
+  'deductions' : bigint,
+  'netSalary' : bigint,
+  'allowances' : bigint,
+  'basicSalary' : bigint,
+}
 export interface SchoolProfile {
   'motto' : string,
   'email' : string,
@@ -202,6 +221,7 @@ export type StartDate = bigint;
 export type Status = string;
 export interface Student {
   'id' : Identifier,
+  'dob' : [] | [bigint],
   'isActive' : IsActive,
   'grade' : Grade,
   'contactEmail' : ContactEmail,
@@ -226,11 +246,19 @@ export interface Teacher {
   'id' : Identifier,
   'subjects' : Subjects,
   'isActive' : IsActive,
+  'grade' : [] | [string],
   'contactEmail' : ContactEmail,
   'lastName' : string,
   'dateOfJoin' : DateOfJoin,
   'contactPhone' : ContactPhone,
   'firstName' : string,
+}
+export interface TeacherAttendance {
+  'id' : string,
+  'status' : string,
+  'date' : bigint,
+  'notes' : string,
+  'teacherId' : string,
 }
 export type Term = string;
 export type Timestamp = bigint;
@@ -259,6 +287,11 @@ export interface _SERVICE {
     Identifier
   >,
   'addResourceLink' : ActorMethod<[string, string, string, string], string>,
+  'addTeacherAttendance' : ActorMethod<
+    [string, bigint, string, string],
+    string
+  >,
+  'approveAttendanceCorrection' : ActorMethod<[string], undefined>,
   'approveLeaveRequest' : ActorMethod<[Identifier], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'convertApplicantToStudent' : ActorMethod<[string], Identifier>,
@@ -273,7 +306,7 @@ export interface _SERVICE {
     string
   >,
   'createFeeStructure' : ActorMethod<
-    [string, string, bigint, GradeLevel, string, IsActive],
+    [string, string, bigint, GradeLevel, string, string, string, IsActive],
     string
   >,
   'createPayment' : ActorMethod<
@@ -304,6 +337,7 @@ export interface _SERVICE {
       ContactPhone,
       ParentName,
       EnrollmentDate,
+      [] | [bigint],
       IsActive,
     ],
     Identifier
@@ -320,6 +354,7 @@ export interface _SERVICE {
       ContactEmail,
       ContactPhone,
       DateOfJoin,
+      [] | [string],
       IsActive,
     ],
     Identifier
@@ -392,14 +427,20 @@ export interface _SERVICE {
   'getGradesBySubject' : ActorMethod<[Subject], Array<GradeRecord>>,
   'getLeaveRequest' : ActorMethod<[Identifier], LeaveRequest>,
   'getLeaveRequestsByStaff' : ActorMethod<[string], Array<LeaveRequest>>,
+  'getLeaveRequestsByStaffId' : ActorMethod<[string], Array<LeaveRequest>>,
   'getLesson' : ActorMethod<[Identifier], Lesson>,
   'getLessonsByCourse' : ActorMethod<[CourseId], Array<Lesson>>,
   'getOverdueInvoices' : ActorMethod<[], Array<StudentInvoice>>,
   'getPayment' : ActorMethod<[string], Payment>,
   'getPayrollRecord' : ActorMethod<[string], PayrollRecord>,
   'getPayrollRecordsByStaff' : ActorMethod<[string], Array<PayrollRecord>>,
+  'getPendingAttendanceCorrections' : ActorMethod<
+    [],
+    Array<AttendanceCorrection>
+  >,
   'getPendingLeaveRequests' : ActorMethod<[], Array<LeaveRequest>>,
   'getResourceLinksByCourse' : ActorMethod<[string], Array<ResourceLink>>,
+  'getSalarySlipData' : ActorMethod<[string], [] | [SalarySlipData]>,
   'getSchoolProfile' : ActorMethod<[], SchoolProfile>,
   'getStaff' : ActorMethod<[Identifier], Staff>,
   'getStudent' : ActorMethod<[Identifier], Student>,
@@ -416,6 +457,14 @@ export interface _SERVICE {
     Array<AssignmentSubmission>
   >,
   'getTeacher' : ActorMethod<[Identifier], Teacher>,
+  'getTeacherAttendanceByDate' : ActorMethod<
+    [bigint],
+    Array<TeacherAttendance>
+  >,
+  'getTeacherAttendanceByTeacher' : ActorMethod<
+    [string],
+    Array<TeacherAttendance>
+  >,
   'getTotalExpenses' : ActorMethod<[], bigint>,
   'getTotalFeesCollected' : ActorMethod<[], bigint>,
   'getUnpaidInvoices' : ActorMethod<[], Array<StudentInvoice>>,
@@ -428,10 +477,15 @@ export interface _SERVICE {
     [Identifier, Subject, Term, Score, Remarks],
     string
   >,
+  'rejectAttendanceCorrection' : ActorMethod<[string], undefined>,
   'rejectLeaveRequest' : ActorMethod<[Identifier], undefined>,
   'removeStudentFromClass' : ActorMethod<[Identifier, Identifier], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'submitAssignment' : ActorMethod<[Identifier, Identifier, string], string>,
+  'submitAttendanceCorrection' : ActorMethod<
+    [string, bigint, string, string],
+    string
+  >,
   'submitLeaveRequest' : ActorMethod<
     [StaffId, LeaveType, StartDate, EndDate, Reason],
     Identifier
@@ -461,7 +515,17 @@ export interface _SERVICE {
     string
   >,
   'updateFeeStructure' : ActorMethod<
-    [string, string, string, bigint, GradeLevel, string, IsActive],
+    [
+      string,
+      string,
+      string,
+      bigint,
+      GradeLevel,
+      string,
+      string,
+      string,
+      IsActive,
+    ],
     string
   >,
   'updatePayment' : ActorMethod<
@@ -494,6 +558,7 @@ export interface _SERVICE {
       ContactPhone,
       ParentName,
       EnrollmentDate,
+      [] | [bigint],
       IsActive,
     ],
     Identifier
@@ -511,6 +576,7 @@ export interface _SERVICE {
       ContactEmail,
       ContactPhone,
       DateOfJoin,
+      [] | [string],
       IsActive,
     ],
     Identifier

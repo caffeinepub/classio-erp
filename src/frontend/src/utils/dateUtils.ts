@@ -9,17 +9,19 @@ export function bigIntToDate(ns: bigint): Date {
 
 export function bigIntToDateString(ns: bigint): string {
   const date = bigIntToDate(ns);
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString("en-IN", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 }
 
+/** @deprecated Use formatINR from currencyUtils instead */
 export function formatCurrency(amount: bigint): string {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
+    maximumFractionDigits: 0,
   }).format(Number(amount));
 }
 

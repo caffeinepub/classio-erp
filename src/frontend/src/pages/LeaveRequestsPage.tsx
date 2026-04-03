@@ -21,9 +21,11 @@ import { CheckCircle, Loader2, Plus, XCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, PageHeader, StatusBadge } from "../components/shared";
+import { useLocalAuth } from "../hooks/useLocalAuth";
 import {
   useAllStaff,
   useApproveLeaveRequest,
+  useLeaveRequestsByStaffId,
   usePendingLeaveRequests,
   useRejectLeaveRequest,
   useSubmitLeaveRequest,
@@ -31,15 +33,29 @@ import {
 import { bigIntToDateString, dateToBigInt } from "../utils/dateUtils";
 
 export default function LeaveRequestsPage() {
-  const { data: pendingRequests, isLoading } = usePendingLeaveRequests();
+  const { user } = useLocalAuth();
+  const role = user?.role ?? "";
+  const isAdmin =
+    role === "superadmin" || role === "schooladmin" || role === "hr";
+
+  // Admin hooks
+  const { data: pendingRequests, isLoading: pendingLoading } =
+    usePendingLeaveRequests();
   const { data: staff } = useAllStaff();
-  const submitLeave = useSubmitLeaveRequest();
   const approveLeave = useApproveLeaveRequest();
   const rejectLeave = useRejectLeaveRequest();
 
+  // Teacher self-service hooks
+  const staffId = user?.username ?? "";
+  const { data: myRequests, isLoading: myLoading } = useLeaveRequestsByStaffId(
+    !isAdmin ? staffId : "",
+  );
+
+  const submitLeave = useSubmitLeaveRequest();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
-    staffId: "",
+    staffId: isAdmin ? "" : staffId,
     leaveType: "annual",
     startDate: new Date().toISOString().split("T")[0],
     endDate: new Date().toISOString().split("T")[0],
@@ -48,9 +64,14 @@ export default function LeaveRequestsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const effectiveStaffId = isAdmin ? form.staffId : staffId;
+    if (!effectiveStaffId) {
+      toast.error("Staff ID is required");
+      return;
+    }
     try {
       await submitLeave.mutateAsync({
-        staffId: form.staffId,
+        staffId: effectiveStaffId,
         leaveType: form.leaveType,
         startDate: dateToBigInt(new Date(form.startDate)),
         endDate: dateToBigInt(new Date(form.endDate)),
@@ -58,6 +79,7 @@ export default function LeaveRequestsPage() {
       });
       toast.success("Leave request submitted");
       setModalOpen(false);
+      setForm((f) => ({ ...f, reason: "", staffId: isAdmin ? "" : staffId }));
     } catch {
       toast.error("Submission failed");
     }
@@ -86,11 +108,18 @@ export default function LeaveRequestsPage() {
     return s ? `${s.firstName} ${s.lastName}` : id;
   };
 
+  const isLoading = isAdmin ? pendingLoading : myLoading;
+  const requests = isAdmin ? (pendingRequests ?? []) : (myRequests ?? []);
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <PageHeader
-        title="Leave Requests"
-        description="Review and manage staff leave applications"
+        title={isAdmin ? "Leave Requests" : "My Leave Requests"}
+        description={
+          isAdmin
+            ? "Review and manage staff leave applications"
+            : "Submit and track your leave requests"
+        }
         actions={
           <Button
             data-ocid="leave.add.primary_button"
@@ -107,15 +136,21 @@ export default function LeaveRequestsPage() {
             <Skeleton key={k} className="h-24 rounded-lg" />
           ))}
         </div>
-      ) : !pendingRequests || pendingRequests.length === 0 ? (
+      ) : requests.length === 0 ? (
         <EmptyState
-          title="No pending leave requests"
-          description="All leave requests have been reviewed, or none submitted yet."
+          title={
+            isAdmin ? "No pending leave requests" : "No leave requests yet"
+          }
+          description={
+            isAdmin
+              ? "All leave requests have been reviewed, or none submitted yet."
+              : "Submit a leave request using the button above."
+          }
           ocid="leave.list.empty_state"
         />
       ) : (
         <div className="space-y-3">
-          {pendingRequests.map((r, i) => (
+          {requests.map((r, i) => (
             <div
               key={r.id}
               data-ocid={`leave.list.item.${i + 1}`}
@@ -124,7 +159,9 @@ export default function LeaveRequestsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <p className="font-semibold">{getStaffName(r.staffId)}</p>
+                    {isAdmin && (
+                      <p className="font-semibold">{getStaffName(r.staffId)}</p>
+                    )}
                     <StatusBadge status={r.status.toLowerCase()} />
                     <span className="bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2 py-0.5 rounded capitalize">
                       {r.leaveType}
@@ -136,56 +173,61 @@ export default function LeaveRequestsPage() {
                   </p>
                   <p className="text-sm text-foreground mt-1">{r.reason}</p>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    type="button"
-                    data-ocid={`leave.list.approve.${i + 1}`}
-                    onClick={() => handleApprove(r.id)}
-                    disabled={approveLeave.isPending}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-50 text-green-700 border border-green-200 text-sm font-medium hover:bg-green-100 disabled:opacity-50 transition-colors"
-                  >
-                    <CheckCircle className="h-4 w-4" /> Approve
-                  </button>
-                  <button
-                    type="button"
-                    data-ocid={`leave.list.reject.${i + 1}`}
-                    onClick={() => handleReject(r.id)}
-                    disabled={rejectLeave.isPending}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-700 border border-red-200 text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
-                  >
-                    <XCircle className="h-4 w-4" /> Reject
-                  </button>
-                </div>
+                {isAdmin && r.status.toLowerCase() === "pending" && (
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      data-ocid={`leave.list.approve.${i + 1}`}
+                      onClick={() => handleApprove(r.id)}
+                      disabled={approveLeave.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-50 text-green-700 border border-green-200 text-sm font-medium hover:bg-green-100 disabled:opacity-50 transition-colors"
+                    >
+                      <CheckCircle className="h-4 w-4" /> Approve
+                    </button>
+                    <button
+                      type="button"
+                      data-ocid={`leave.list.reject.${i + 1}`}
+                      onClick={() => handleReject(r.id)}
+                      disabled={rejectLeave.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-700 border border-red-200 text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+                    >
+                      <XCircle className="h-4 w-4" /> Reject
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
+      {/* Submit Leave Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent data-ocid="leave.modal">
           <DialogHeader>
             <DialogTitle>Submit Leave Request</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Staff Member *</Label>
-              <Select
-                value={form.staffId}
-                onValueChange={(v) => setForm((f) => ({ ...f, staffId: v }))}
-              >
-                <SelectTrigger data-ocid="leave.modal.staff.select">
-                  <SelectValue placeholder="Select staff" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(staff ?? []).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label>Staff Member *</Label>
+                <Select
+                  value={form.staffId}
+                  onValueChange={(v) => setForm((f) => ({ ...f, staffId: v }))}
+                >
+                  <SelectTrigger data-ocid="leave.modal.staff.select">
+                    <SelectValue placeholder="Select staff" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(staff ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Leave Type</Label>
               <Select
@@ -252,7 +294,7 @@ export default function LeaveRequestsPage() {
               <Button
                 data-ocid="leave.modal.submit_button"
                 type="submit"
-                disabled={submitLeave.isPending || !form.staffId}
+                disabled={submitLeave.isPending || (isAdmin && !form.staffId)}
               >
                 {submitLeave.isPending && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

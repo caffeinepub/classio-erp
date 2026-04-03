@@ -4,6 +4,7 @@ import type {
   Announcement,
   Assignment,
   AssignmentSubmission,
+  AttendanceCorrection,
   AttendanceRecord,
   AttendanceRecordInput,
   Class,
@@ -14,10 +15,12 @@ import type {
   Lesson,
   PayrollRecord,
   ResourceLink,
+  SalarySlipData,
   SchoolProfile,
   Staff,
   Student,
   Teacher,
+  TeacherAttendance,
   UserProfile,
   UserRole,
 } from "../backend.d";
@@ -140,6 +143,7 @@ export function useCreateStudent() {
       contactPhone: string;
       parentName: string;
       enrollmentDate: bigint;
+      dob: bigint | null;
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("No actor");
@@ -151,6 +155,7 @@ export function useCreateStudent() {
         data.contactPhone,
         data.parentName,
         data.enrollmentDate,
+        data.dob,
         data.isActive,
       );
     },
@@ -171,6 +176,7 @@ export function useUpdateStudent() {
       contactPhone: string;
       parentName: string;
       enrollmentDate: bigint;
+      dob: bigint | null;
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("No actor");
@@ -183,6 +189,7 @@ export function useUpdateStudent() {
         data.contactPhone,
         data.parentName,
         data.enrollmentDate,
+        data.dob,
         data.isActive,
       );
     },
@@ -226,6 +233,7 @@ export function useCreateTeacher() {
       contactEmail: string;
       contactPhone: string;
       dateOfJoin: bigint;
+      grade: string | null;
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("No actor");
@@ -236,6 +244,7 @@ export function useCreateTeacher() {
         data.contactEmail,
         data.contactPhone,
         data.dateOfJoin,
+        data.grade,
         data.isActive,
       );
     },
@@ -255,6 +264,7 @@ export function useUpdateTeacher() {
       contactEmail: string;
       contactPhone: string;
       dateOfJoin: bigint;
+      grade: string | null;
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("No actor");
@@ -266,6 +276,7 @@ export function useUpdateTeacher() {
         data.contactEmail,
         data.contactPhone,
         data.dateOfJoin,
+        data.grade,
         data.isActive,
       );
     },
@@ -397,6 +408,131 @@ export function useRecordAttendance() {
   });
 }
 
+// ── Teacher Attendance ─────────────────────────────────────────────────────
+export function useTeacherAttendanceByDate(date: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<TeacherAttendance[]>({
+    queryKey: ["teacherAttendance", "date", date],
+    queryFn: async () => {
+      if (!actor || !date) return [];
+      const d = new Date(date);
+      return actor.getTeacherAttendanceByDate(
+        BigInt(d.getTime()) * BigInt(1_000_000),
+      );
+    },
+    enabled: !!actor && !isFetching && !!date,
+  });
+}
+
+export function useTeacherAttendanceByTeacher(teacherId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<TeacherAttendance[]>({
+    queryKey: ["teacherAttendance", "teacher", teacherId],
+    queryFn: async () => {
+      if (!actor || !teacherId) return [];
+      return actor.getTeacherAttendanceByTeacher(teacherId);
+    },
+    enabled: !!actor && !isFetching && !!teacherId,
+  });
+}
+
+export function useAddTeacherAttendance() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      teacherId: string;
+      date: bigint;
+      status: string;
+      notes: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.addTeacherAttendance(
+        data.teacherId,
+        data.date,
+        data.status,
+        data.notes,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teacherAttendance"] }),
+  });
+}
+
+// ── Attendance Corrections ─────────────────────────────────────────────────
+export function usePendingAttendanceCorrections() {
+  const { actor, isFetching } = useActor();
+  return useQuery<AttendanceCorrection[]>({
+    queryKey: ["attendanceCorrections", "pending"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getPendingAttendanceCorrections();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSubmitAttendanceCorrection() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      staffId: string;
+      date: bigint;
+      requestedStatus: string;
+      reason: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.submitAttendanceCorrection(
+        data.staffId,
+        data.date,
+        data.requestedStatus,
+        data.reason,
+      );
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["attendanceCorrections"] }),
+  });
+}
+
+export function useApproveAttendanceCorrection() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => {
+      if (!actor) throw new Error("No actor");
+      return actor.approveAttendanceCorrection(id);
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["attendanceCorrections"] }),
+  });
+}
+
+export function useRejectAttendanceCorrection() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => {
+      if (!actor) throw new Error("No actor");
+      return actor.rejectAttendanceCorrection(id);
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["attendanceCorrections"] }),
+  });
+}
+
+// ── Salary Slip ────────────────────────────────────────────────────────────
+export function useSalarySlipData(staffId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<SalarySlipData | null>({
+    queryKey: ["salarySlip", staffId],
+    queryFn: async () => {
+      if (!actor || !staffId) return null;
+      return actor.getSalarySlipData(staffId);
+    },
+    enabled: !!actor && !isFetching && !!staffId,
+  });
+}
+
 // ── Grades ─────────────────────────────────────────────────────────────────
 export function useGradesByStudent(studentId: string) {
   const { actor, isFetching } = useActor();
@@ -472,25 +608,7 @@ export function useSchoolProfile() {
   });
 }
 
-export function useSaveSchoolProfile() {
-  const { actor } = useActor();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (profile: SchoolProfile) => {
-      if (!actor) throw new Error("No actor");
-      // saveCallerUserProfile saves user profile, not school profile
-      // We'll use it with a school profile UserProfile mapped form
-      const userProfile: UserProfile = {
-        name: profile.schoolName,
-        role: "admin",
-      };
-      return actor.saveCallerUserProfile(userProfile);
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["schoolProfile"] }),
-  });
-}
-
-// ── HR - Staff ─────────────────────────────────────────────────────────────
+// ── Staff ──────────────────────────────────────────────────────────────────
 export function useAllStaff() {
   const { actor, isFetching } = useActor();
   return useQuery<Staff[]>({
@@ -585,7 +703,7 @@ export function useDeleteStaff() {
   });
 }
 
-// ── HR - Departments ───────────────────────────────────────────────────────
+// ── Departments ────────────────────────────────────────────────────────────
 export function useAllDepartments() {
   const { actor, isFetching } = useActor();
   return useQuery<Department[]>({
@@ -642,6 +760,18 @@ export function useLeaveRequestsByStaff(staffId: string) {
     queryFn: async () => {
       if (!actor || !staffId) return [];
       return actor.getLeaveRequestsByStaff(staffId);
+    },
+    enabled: !!actor && !isFetching && !!staffId,
+  });
+}
+
+export function useLeaveRequestsByStaffId(staffId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<LeaveRequest[]>({
+    queryKey: ["leaveRequests", "staffId", staffId],
+    queryFn: async () => {
+      if (!actor || !staffId) return [];
+      return actor.getLeaveRequestsByStaffId(staffId);
     },
     enabled: !!actor && !isFetching && !!staffId,
   });
@@ -885,11 +1015,11 @@ export function useAddOrUpdateAssignment() {
   });
 }
 
-// ── LMS - Submissions ──────────────────────────────────────────────────────
+// ── LMS - Submissions ─────────────────────────────────────────────────────
 export function useSubmissionsByAssignment(assignmentId: string) {
   const { actor, isFetching } = useActor();
   return useQuery<AssignmentSubmission[]>({
-    queryKey: ["submissions", "assignment", assignmentId],
+    queryKey: ["submissions", assignmentId],
     queryFn: async () => {
       if (!actor || !assignmentId) return [];
       return actor.getSubmissionsByAssignment(assignmentId);
@@ -918,8 +1048,8 @@ export function useGradeSubmission() {
   });
 }
 
-// ── LMS - Resources ────────────────────────────────────────────────────────
-export function useResourcesByCourse(courseId: string) {
+// ── LMS - Resource Links ───────────────────────────────────────────────────
+export function useResourceLinksByCourse(courseId: string) {
   const { actor, isFetching } = useActor();
   return useQuery<ResourceLink[]>({
     queryKey: ["resources", courseId],
@@ -1049,6 +1179,8 @@ export function useCreateFeeStructure() {
       amount: bigint;
       gradeLevel: string;
       academicYear: string;
+      feeType: string;
+      feeTypeLabel: string;
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("No actor");
@@ -1058,6 +1190,8 @@ export function useCreateFeeStructure() {
         data.amount,
         data.gradeLevel,
         data.academicYear,
+        data.feeType,
+        data.feeTypeLabel,
         data.isActive,
       );
     },
@@ -1076,6 +1210,8 @@ export function useUpdateFeeStructure() {
       amount: bigint;
       gradeLevel: string;
       academicYear: string;
+      feeType: string;
+      feeTypeLabel: string;
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("No actor");
@@ -1086,6 +1222,8 @@ export function useUpdateFeeStructure() {
         data.amount,
         data.gradeLevel,
         data.academicYear,
+        data.feeType,
+        data.feeTypeLabel,
         data.isActive,
       );
     },
@@ -1300,7 +1438,10 @@ export function useUpdateExpense() {
         data.approvedBy,
       );
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["totalExpenses"] });
+    },
   });
 }
 
@@ -1312,7 +1453,10 @@ export function useDeleteExpense() {
       if (!actor) throw new Error("No actor");
       return actor.deleteExpense(id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["totalExpenses"] });
+    },
   });
 }
 

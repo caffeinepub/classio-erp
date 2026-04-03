@@ -14,7 +14,7 @@ import {
 
 export type LocalUser = {
   username: string;
-  role: string; // "superadmin" | "schooladmin" | "teacher" | "hr" | "student"
+  role: string; // "superadmin" | "schooladmin" | "teacher" | "hr"
   name: string;
 };
 
@@ -59,7 +59,12 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as LocalUser;
-        setUser(parsed);
+        // Block students from being restored into an active session
+        if (parsed.role !== "student") {
+          setUser(parsed);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -76,6 +81,9 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       // Check built-in accounts first
       const account = ACCOUNTS[username.toLowerCase()];
       if (account && account.password === password) {
+        if (account.role === "student") {
+          return { success: false, error: "Student login is not available" };
+        }
         const loggedInUser: LocalUser = {
           username: username.toLowerCase(),
           role: account.role,
@@ -96,6 +104,12 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
           >;
           const regAccount = registered[username.toLowerCase()];
           if (regAccount && regAccount.password === password) {
+            if (regAccount.role === "student") {
+              return {
+                success: false,
+                error: "Student login is not available",
+              };
+            }
             const loggedInUser: LocalUser = {
               username: username.toLowerCase(),
               role: regAccount.role,

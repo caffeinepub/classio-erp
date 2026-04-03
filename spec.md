@@ -1,39 +1,66 @@
 # Classio ERP
 
 ## Current State
-Backend generated with: Student, Teacher, Class, Attendance, Grades, Announcements, Dashboard stats, Settings, and role-based authorization (Admin, Teacher, Student). Authorization component is selected.
+- Local username/password auth with roles: superadmin, schooladmin, teacher, hr
+- Super Admin (admin/admin123) can create School Admin accounts
+- Sidebar shows role-based nav sections
+- All finance pages use formatINR utility but some UI still shows dollar signs
+- Teachers module exists separately from Staff module (not linked)
+- Student detail form has basic fields (no DOB)
+- Teacher form has basic fields (no grade assignment)
+- Fee Structures page has basic fee amount input (no fee type dropdown)
+- Leave Requests page exists (admin side only, no teacher self-service)
+- SchoolAdminsPage only creates schooladmin role (no teacher/hr creation by school admins)
+- Attendance module tracks students, not teacher attendance
+- No salary slip download in teacher dashboard
+- No teacher-specific dashboard pages (leave req form, attendance req, salary slip)
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Super Admin role**: Highest privilege role that can create and manage Admin accounts, view all school data, configure school-wide settings. Only Super Admin can promote users to Admin.
-- **Human Resources (HR) Management module**:
-  - Staff records: all school staff (name, role/position, department, employment type, hire date, salary, contact info)
-  - Leave management: staff can apply for leave; HR/Admin can approve or reject
-  - Payroll summary: record monthly salary disbursement per staff member
-  - Departments: create and manage departments (e.g. Administration, Science Dept, etc.)
-- **Learning Management System (LMS) module**:
-  - Courses: create courses linked to a class/subject (title, description, teacher, class)
-  - Lessons/Content: add lessons to a course (title, content text, order)
-  - Assignments: create assignments per course (title, instructions, due date)
-  - Submissions: students submit work (text submission), teachers can grade submissions
-  - Resources: upload links/external URLs as course resources
+- DOB (Date of Birth) field to student form/detail
+- Grade field to teacher form
+- Fee type dropdown in Fee Structures: Tuition Fees, Quarterly Fees, Activity Fees, Other (with text field when Other selected)
+- Teacher self-service dashboard section with: Leave Request form, Attendance Request form, Salary Slip download (PDF generation)
+- School Admin ability to create Teacher and HR accounts (not just School Admin accounts) -- extend user creation page
+- Role-based access control: School Admin creates users with role selection (Teacher, HR); defines who can edit vs view
+- Teacher Attendance tracking module (separate from student attendance)
+- School Admin approve/reject leave requests with visible pending leave requests on their dashboard/leave page
+- Staff module that auto-syncs teachers -- when a teacher is created, they appear in Staff list
 
 ### Modify
-- Extend roles to include: SuperAdmin, Admin, HR, Teacher, Student
-- Dashboard updated to show HR stats (total staff, pending leaves) and LMS stats (active courses, submissions pending grading)
+- Replace ALL dollar signs ($) with INR (₹) across all pages -- audit every page for currency formatting
+- currencyUtils.ts: ensure formatINR and all currency helpers only use ₹ symbol
+- SchoolAdminsPage: rename to "User Management" for school admins; allow creating Teacher and HR roles with username/password; show list of created users with their roles
+- Leave Requests page: show approve/reject only to schooladmin/superadmin; teachers see only their own leave requests and can submit; staff dropdown replaced with auto-filled current user for teachers
+- Sidebar: add "Teacher Dashboard" section for teacher role with: My Leave Requests, My Attendance, Salary Slip
+- Attendance page: add tab for Teacher Attendance (mark present/absent for teachers, not students)
+- Student detail: add DOB date field
+- Teacher form: add Grade field (dropdown matching existing grades)
+- Fee Structures: replace free-text amount with fee type selector + amount; fee types: Tuition Fees, Quarterly Fees, Activity Fees, Other (shows text input for custom label)
 
 ### Remove
-N/A
+- Dollar ($) symbol from all currency displays
+- No student login (already removed, keep as is)
 
 ## Implementation Plan
-1. Regenerate Motoko backend including all original features plus:
-   - SuperAdmin role with admin-creation capability
-   - HR: Staff CRUD, Leave requests (apply/approve/reject), Payroll records, Department CRUD
-   - LMS: Course CRUD, Lesson CRUD, Assignment CRUD, Submission CRUD with grading, Resource links
-   - Extended role system: superAdmin > admin > hr / teacher > student
-2. Update frontend with:
-   - New sidebar sections: HR Management, Learning (LMS)
-   - Super Admin panel: user management, create/assign admins
-   - HR module pages: Staff list, Leave requests board (Kanban-style approve/reject), Payroll table, Departments
-   - LMS module pages: Courses list, Course detail (lessons + assignments), Assignment submissions viewer, Resource links
+1. Update backend main.mo:
+   - Add `dob` field to Student type
+   - Add `grade` field to Teacher type  
+   - Add `feeType` and `feeTypeLabel` fields to FeeStructure type
+   - Add TeacherAttendance type and CRUD functions
+   - Add teacher-specific leave request queries (getMyLeaveRequests by staffId)
+   - Add salary slip data query
+
+2. Frontend changes:
+   - currencyUtils.ts: audit and fix all $ symbols
+   - StudentsPage: add DOB field to add/edit form and detail view
+   - TeachersPage: add Grade dropdown field; when teacher is created, also create staff record
+   - FeeStructuresPage: replace amount input with fee type dropdown + amount; show Other text field
+   - LeaveRequestsPage: role-aware -- admins see all + approve/reject; teachers see own requests + submit form
+   - SchoolAdminsPage / new UserCreationPage: school admins can create Teacher/HR accounts with username/password; list existing users
+   - StaffPage: show teachers in staff list (merged view)
+   - Sidebar: add teacher-specific items (My Leave, My Attendance, Salary Slip)
+   - TeacherDashboard section: Leave Request form, Attendance Request, Salary Slip download
+   - AttendancePage: add Teacher Attendance tab
+   - Fix all remaining $ → ₹ in PayrollPage, InvoicesPage, PaymentsPage, ExpensesPage, FeeStructuresPage

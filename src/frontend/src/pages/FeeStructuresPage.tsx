@@ -55,12 +55,34 @@ const GRADE_LEVELS = [
   "All Grades",
 ];
 
-const defaultForm = {
+const FEE_TYPE_OPTIONS = [
+  { value: "tuition", label: "Tuition Fees" },
+  { value: "quarterly", label: "Quarterly Fees" },
+  { value: "activity", label: "Activity Fees" },
+  { value: "other", label: "Other" },
+];
+
+type FeeForm = {
+  name: string;
+  description: string;
+  amount: string;
+  gradeLevel: string;
+  academicYear: string;
+  feeType: string;
+  feeTypeLabel: string;
+  customLabel: string;
+  isActive: boolean;
+};
+
+const defaultForm: FeeForm = {
   name: "",
   description: "",
   amount: "",
   gradeLevel: "",
   academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+  feeType: "",
+  feeTypeLabel: "",
+  customLabel: "",
   isActive: true,
 };
 
@@ -72,18 +94,23 @@ export default function FeeStructuresPage() {
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState(defaultForm);
+  const [form, setForm] = useState<FeeForm>(defaultForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const handleOpen = (fs?: any) => {
     if (fs) {
       setEditId(fs.id);
+      const feeType = fs.feeType ?? "tuition";
+      const isCustom = feeType === "other";
       setForm({
         name: fs.name,
         description: fs.description,
         amount: String(Number(fs.amount)),
         gradeLevel: fs.gradeLevel,
         academicYear: fs.academicYear,
+        feeType,
+        feeTypeLabel: fs.feeTypeLabel ?? "",
+        customLabel: isCustom ? (fs.feeTypeLabel ?? "") : "",
         isActive: fs.isActive,
       });
     } else {
@@ -93,17 +120,32 @@ export default function FeeStructuresPage() {
     setOpen(true);
   };
 
+  const getEffectiveFeeTypeLabel = () => {
+    if (form.feeType === "other") return form.customLabel;
+    return (
+      FEE_TYPE_OPTIONS.find((o) => o.value === form.feeType)?.label ??
+      form.feeType
+    );
+  };
+
   const handleSubmit = async () => {
-    if (!form.name || !form.amount || !form.gradeLevel) {
-      toast.error("Name, amount, and grade level are required");
+    if (!form.name || !form.amount || !form.gradeLevel || !form.feeType) {
+      toast.error("Name, fee type, amount, and grade level are required");
       return;
     }
+    if (form.feeType === "other" && !form.customLabel.trim()) {
+      toast.error("Please enter a label for the custom fee type");
+      return;
+    }
+    const feeTypeLabel = getEffectiveFeeTypeLabel();
     const payload = {
       name: form.name,
       description: form.description,
       amount: BigInt(Math.round(Number(form.amount))),
       gradeLevel: form.gradeLevel,
       academicYear: form.academicYear,
+      feeType: form.feeType,
+      feeTypeLabel,
       isActive: form.isActive,
     };
     try {
@@ -159,6 +201,42 @@ export default function FeeStructuresPage() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label>Fee Type *</Label>
+                  <Select
+                    value={form.feeType}
+                    onValueChange={(v) =>
+                      setForm((p) => ({
+                        ...p,
+                        feeType: v,
+                        customLabel: v !== "other" ? "" : p.customLabel,
+                      }))
+                    }
+                  >
+                    <SelectTrigger data-ocid="fee_structures.feetype.select">
+                      <SelectValue placeholder="Select fee type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FEE_TYPE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.feeType === "other" && (
+                  <div className="space-y-1.5">
+                    <Label>Custom Fee Label *</Label>
+                    <Input
+                      placeholder="e.g. Transport Fee, Library Fee"
+                      value={form.customLabel}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, customLabel: e.target.value }))
+                      }
+                    />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <Label>Name *</Label>
                   <Input
@@ -264,6 +342,7 @@ export default function FeeStructuresPage() {
         <Table data-ocid="fee_structures.table">
           <TableHeader>
             <TableRow>
+              <TableHead>Fee Type</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Grade Level</TableHead>
               <TableHead>Academic Year</TableHead>
@@ -276,7 +355,7 @@ export default function FeeStructuresPage() {
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-12"
                   data-ocid="fee_structures.loading_state"
                 >
@@ -286,7 +365,7 @@ export default function FeeStructuresPage() {
             ) : feeStructures.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-12 text-muted-foreground"
                   data-ocid="fee_structures.empty_state"
                 >
@@ -299,6 +378,14 @@ export default function FeeStructuresPage() {
                   key={fs.id}
                   data-ocid={`fee_structures.item.${i + 1}`}
                 >
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className="capitalize bg-primary/5 text-primary border-primary/20"
+                    >
+                      {fs.feeTypeLabel || fs.feeType || "—"}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <div className="font-medium">{fs.name}</div>
                     {fs.description && (

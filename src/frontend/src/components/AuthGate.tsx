@@ -1,64 +1,17 @@
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Building2,
+  BookOpen,
   Eye,
   EyeOff,
   GraduationCap,
   Loader2,
-  ShieldCheck,
-  UserCog,
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { useLocalAuth } from "../hooks/useLocalAuth";
-
-const ROLE_CARDS = [
-  {
-    icon: ShieldCheck,
-    role: "Super Admin",
-    description: "Full system access, manage school admins and global settings",
-    color: "text-amber-600",
-    bg: "bg-amber-50 border-amber-200",
-  },
-  {
-    icon: Building2,
-    role: "School Admin",
-    description: "Manage students, staff, and all school operations",
-    color: "text-blue-600",
-    bg: "bg-blue-50 border-blue-200",
-  },
-  {
-    icon: GraduationCap,
-    role: "Teacher",
-    description: "Manage classes, assign grades, and publish LMS courses",
-    color: "text-green-600",
-    bg: "bg-green-50 border-green-200",
-  },
-  {
-    icon: UserCog,
-    role: "HR Manager",
-    description: "Handle payroll, staff records, and leave management",
-    color: "text-purple-600",
-    bg: "bg-purple-50 border-purple-200",
-  },
-  {
-    icon: Users,
-    role: "Student",
-    description: "Access courses, view grades, and read announcements",
-    color: "text-cyan-600",
-    bg: "bg-cyan-50 border-cyan-200",
-  },
-];
 
 function LoginScreen() {
   const { login } = useLocalAuth();
@@ -76,211 +29,304 @@ function LoginScreen() {
       return;
     }
     setIsLoading(true);
-    // Small timeout to show loading state
     setTimeout(() => {
       const result = login(username.trim(), password);
       if (!result.success) {
         setError(result.error ?? "Login failed");
         setIsLoading(false);
       }
-      // If success, the provider state update will re-render and exit login screen
     }, 300);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <img
-            src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
-            alt="Classio ERP"
-            className="w-10 h-10 rounded-lg object-cover border border-slate-200"
-          />
-          <div>
-            <span className="text-slate-800 font-bold text-lg leading-none">
-              Classio ERP
-            </span>
-            <p className="text-slate-400 text-xs mt-0.5">
+    <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Left Tile — Brand / Hero Panel */}
+      <motion.div
+        initial={{ opacity: 0, x: -30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative flex flex-col items-center justify-center md:w-[45%] min-h-[280px] md:min-h-screen overflow-hidden"
+        style={{ background: "#060B14" }}
+      >
+        {/* Decorative blobs */}
+        <div
+          className="absolute top-[-80px] left-[-80px] w-64 h-64 rounded-full opacity-20 blur-3xl pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle, #00CCFF 0%, #009FD6 60%, transparent 100%)",
+          }}
+        />
+        <div
+          className="absolute bottom-[-60px] right-[-60px] w-56 h-56 rounded-full opacity-15 blur-3xl pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle, #009FD6 0%, #00CCFF 60%, transparent 100%)",
+          }}
+        />
+        <div
+          className="absolute top-1/2 left-[10%] w-32 h-32 rounded-full opacity-10 blur-2xl pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, #00CCFF 0%, transparent 70%)",
+          }}
+        />
+        {/* Decorative ring */}
+        <div
+          className="absolute bottom-[15%] left-[8%] w-20 h-20 rounded-full border-2 opacity-20 pointer-events-none"
+          style={{ borderColor: "#00CCFF" }}
+        />
+        <div
+          className="absolute top-[12%] right-[10%] w-12 h-12 rounded-full border opacity-15 pointer-events-none"
+          style={{ borderColor: "#009FD6" }}
+        />
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center text-center px-8 py-12">
+          {/* Logo with glow */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="relative mb-8"
+          >
+            <div
+              className="absolute inset-0 rounded-2xl blur-2xl scale-125 opacity-50"
+              style={{
+                background:
+                  "radial-gradient(circle, #00CCFF 0%, #009FD6 60%, transparent 100%)",
+              }}
+            />
+            <img
+              src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
+              alt="Classio ERP"
+              className="relative w-28 h-28 rounded-2xl object-cover"
+              style={{
+                boxShadow:
+                  "0 0 32px 4px rgba(0,204,255,0.35), 0 0 0 2px rgba(0,204,255,0.18)",
+              }}
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <h1
+              className="text-4xl font-bold mb-2 tracking-tight"
+              style={{ color: "#FFFFFF" }}
+            >
+              Classio
+              <span
+                className="block text-transparent bg-clip-text"
+                style={{
+                  backgroundImage: "linear-gradient(90deg, #00CCFF, #009FD6)",
+                }}
+              >
+                ERP
+              </span>
+            </h1>
+            <p
+              className="text-base font-medium mb-8"
+              style={{ color: "rgba(255,255,255,0.55)" }}
+            >
               School Management System
             </p>
-          </div>
-        </div>
-      </header>
+          </motion.div>
 
-      {/* Main */}
-      <main className="flex-1 flex flex-col items-center px-4 pt-10 pb-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="text-center mb-10 max-w-2xl"
-        >
-          <div className="flex justify-center mb-5">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-blue-200/60 blur-2xl scale-110" />
-              <img
-                src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
-                alt="Classio ERP"
-                className="relative w-20 h-20 rounded-2xl object-cover border-2 border-blue-200 shadow-lg"
+          {/* Feature pills */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+            className="flex flex-col gap-3 w-full max-w-[220px]"
+          >
+            {[
+              { icon: GraduationCap, label: "Student Management" },
+              { icon: Users, label: "HR & Staff Portal" },
+              { icon: BookOpen, label: "Learning & Admissions" },
+            ].map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-3 rounded-full px-4 py-2"
+                style={{
+                  background: "rgba(0,204,255,0.08)",
+                  border: "1px solid rgba(0,204,255,0.18)",
+                }}
+              >
+                <Icon
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "#00CCFF" }}
+                />
+                <span
+                  className="text-sm"
+                  style={{ color: "rgba(255,255,255,0.75)" }}
+                >
+                  {label}
+                </span>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        {/* Bottom gradient line */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-[3px]"
+          style={{ background: "linear-gradient(90deg, #00CCFF, #009FD6)" }}
+        />
+      </motion.div>
+
+      {/* Right Tile — Form Panel */}
+      <motion.div
+        initial={{ opacity: 0, x: 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex flex-col items-center justify-center md:w-[55%] min-h-screen bg-white px-6 py-12"
+      >
+        <div className="w-full max-w-sm">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <h2
+              className="text-2xl font-bold mb-1"
+              style={{ color: "#060B14" }}
+            >
+              Welcome back
+            </h2>
+            <p className="text-sm" style={{ color: "#6B7280" }}>
+              Sign in to your Classio ERP account
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="username"
+                className="text-sm font-semibold"
+                style={{ color: "#374151" }}
+              >
+                Username
+              </Label>
+              <Input
+                id="username"
+                data-ocid="login.username_input"
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                disabled={isLoading}
+                className="h-11 text-sm"
+                style={{
+                  borderColor: "#E5E7EB",
+                  background: "#F9FAFB",
+                  color: "#111827",
+                }}
               />
             </div>
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-slate-800 mb-3 tracking-tight">
-            Welcome to <span className="text-blue-600">Classio ERP</span>
-          </h1>
-          <p className="text-slate-500 text-base max-w-xl mx-auto">
-            A comprehensive school management platform for administrators,
-            teachers, HR teams, and students.
-          </p>
-        </motion.div>
 
-        {/* Role Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="w-full max-w-4xl mb-8"
-        >
-          <p className="text-center text-slate-400 text-xs font-semibold uppercase tracking-widest mb-4">
-            Who uses Classio ERP
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {ROLE_CARDS.map((card, i) => (
-              <motion.div
-                key={card.role}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.15 + i * 0.06 }}
-                className={`rounded-xl border p-4 ${card.bg} flex items-start gap-3`}
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="password"
+                className="text-sm font-semibold"
+                style={{ color: "#374151" }}
               >
-                <div className={`mt-0.5 shrink-0 ${card.color}`}>
-                  <card.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className={`font-semibold text-sm ${card.color}`}>
-                    {card.role}
-                  </h3>
-                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-                    {card.description}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Login Form */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.45 }}
-          className="w-full max-w-sm"
-        >
-          <Card className="shadow-lg border border-slate-200 bg-white">
-            <CardHeader className="text-center pb-3">
-              <CardTitle className="text-slate-800 text-xl">Sign In</CardTitle>
-              <CardDescription className="text-slate-500">
-                Enter your credentials to access your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="username" className="text-slate-700">
-                    Username
-                  </Label>
-                  <Input
-                    id="username"
-                    data-ocid="login.username_input"
-                    type="text"
-                    autoComplete="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Enter your username"
-                    disabled={isLoading}
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-slate-700">
-                    Password
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      data-ocid="login.password_input"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      disabled={isLoading}
-                      className="h-10 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {error && (
-                  <p
-                    className="text-red-500 text-sm text-center"
-                    data-ocid="login.error_state"
-                  >
-                    {error}
-                  </p>
-                )}
-
-                <Button
-                  data-ocid="login.primary_button"
-                  type="submit"
-                  className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  data-ocid="login.password_input"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                   disabled={isLoading}
+                  className="h-11 pr-10 text-sm"
+                  style={{
+                    borderColor: "#E5E7EB",
+                    background: "#F9FAFB",
+                    color: "#111827",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: "#9CA3AF" }}
+                  tabIndex={-1}
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
                   ) : (
-                    "Sign In"
+                    <Eye className="h-4 w-4" />
                   )}
-                </Button>
+                </button>
+              </div>
+            </div>
 
-                <p className="text-center text-slate-400 text-xs">
-                  Default superadmin:{" "}
-                  <span className="font-mono text-slate-600">admin</span> /
-                  <span className="font-mono text-slate-600"> admin123</span>
-                </p>
-              </form>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </main>
+            {error && (
+              <div
+                data-ocid="login.error_state"
+                className="rounded-lg px-4 py-3 text-sm text-center"
+                style={{
+                  background: "#FEF2F2",
+                  border: "1px solid #FECACA",
+                  color: "#DC2626",
+                }}
+              >
+                {error}
+              </div>
+            )}
 
-      {/* Footer */}
-      <footer className="text-center py-4 text-slate-400 text-xs border-t border-slate-200 bg-white/60">
-        © {new Date().getFullYear()}. Built with love using{" "}
-        <a
-          href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
-          className="underline hover:text-slate-600 transition-colors"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          caffeine.ai
-        </a>
-      </footer>
+            <Button
+              data-ocid="login.primary_button"
+              type="submit"
+              className="w-full h-11 text-white font-semibold text-sm rounded-lg transition-opacity hover:opacity-90 border-0"
+              style={{
+                background: "linear-gradient(90deg, #00CCFF 0%, #009FD6 100%)",
+                boxShadow: "0 4px 14px rgba(0,204,255,0.3)",
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </Button>
+          </form>
+
+          {/* Role hint */}
+          <div
+            className="mt-6 rounded-xl px-4 py-3 text-xs text-center"
+            style={{
+              background: "#F0FDFE",
+              border: "1px solid #BAE6FD",
+              color: "#0369A1",
+            }}
+          >
+            <span className="font-semibold">Super Admin:</span> admin / admin123
+          </div>
+        </div>
+
+        {/* Footer */}
+        <p className="mt-10 text-xs" style={{ color: "#9CA3AF" }}>
+          © {new Date().getFullYear()}. Built with love using{" "}
+          <a
+            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:opacity-80 transition-opacity"
+            style={{ color: "#009FD6" }}
+          >
+            caffeine.ai
+          </a>
+        </p>
+      </motion.div>
     </div>
   );
 }
@@ -290,10 +336,18 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#060B14" }}
+      >
         <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">Loading Classio ERP...</p>
+          <Loader2
+            className="h-10 w-10 animate-spin mx-auto mb-3"
+            style={{ color: "#00CCFF" }}
+          />
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Loading Classio ERP...
+          </p>
         </div>
       </div>
     );

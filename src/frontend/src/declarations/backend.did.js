@@ -63,6 +63,7 @@ export const Staff = IDL.Record({
 });
 export const Student = IDL.Record({
   'id' : Identifier,
+  'dob' : IDL.Opt(IDL.Int),
   'isActive' : IsActive,
   'grade' : Grade,
   'contactEmail' : ContactEmail,
@@ -76,6 +77,7 @@ export const Teacher = IDL.Record({
   'id' : Identifier,
   'subjects' : Subjects,
   'isActive' : IsActive,
+  'grade' : IDL.Opt(IDL.Text),
   'contactEmail' : ContactEmail,
   'lastName' : IDL.Text,
   'dateOfJoin' : DateOfJoin,
@@ -126,10 +128,12 @@ export const FeeId = IDL.Text;
 export const FeeStructure = IDL.Record({
   'id' : FeeId,
   'name' : IDL.Text,
+  'feeType' : IDL.Text,
   'description' : IDL.Text,
   'isActive' : IsActive,
   'academicYear' : IDL.Text,
   'gradeLevel' : GradeLevel,
+  'feeTypeLabel' : IDL.Text,
   'amount' : IDL.Nat,
 });
 export const Payment = IDL.Record({
@@ -220,6 +224,23 @@ export const PayrollRecord = IDL.Record({
   'allowances' : IDL.Nat,
   'basicSalary' : IDL.Nat,
 });
+export const AttendanceCorrection = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'staffId' : IDL.Text,
+  'date' : IDL.Int,
+  'requestedStatus' : IDL.Text,
+  'reason' : IDL.Text,
+});
+export const SalarySlipData = IDL.Record({
+  'month' : IDL.Nat,
+  'staffId' : IDL.Text,
+  'year' : IDL.Nat,
+  'deductions' : IDL.Nat,
+  'netSalary' : IDL.Nat,
+  'allowances' : IDL.Nat,
+  'basicSalary' : IDL.Nat,
+});
 export const SchoolProfile = IDL.Record({
   'motto' : IDL.Text,
   'email' : IDL.Text,
@@ -236,6 +257,13 @@ export const AssignmentSubmission = IDL.Record({
   'score' : IDL.Opt(IDL.Nat),
   'assignmentId' : Identifier,
   'submissionText' : IDL.Text,
+});
+export const TeacherAttendance = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'date' : IDL.Int,
+  'notes' : IDL.Text,
+  'teacherId' : IDL.Text,
 });
 export const AttendanceRecordInput = IDL.Record({
   'absentStudents' : IDL.Vec(Identifier),
@@ -271,6 +299,12 @@ export const idlService = IDL.Service({
       [IDL.Text],
       [],
     ),
+  'addTeacherAttendance' : IDL.Func(
+      [IDL.Text, IDL.Int, IDL.Text, IDL.Text],
+      [IDL.Text],
+      [],
+    ),
+  'approveAttendanceCorrection' : IDL.Func([IDL.Text], [], []),
   'approveLeaveRequest' : IDL.Func([Identifier], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'convertApplicantToStudent' : IDL.Func([IDL.Text], [Identifier], []),
@@ -297,7 +331,16 @@ export const idlService = IDL.Service({
       [],
     ),
   'createFeeStructure' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        GradeLevel,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IsActive,
+      ],
       [IDL.Text],
       [],
     ),
@@ -331,6 +374,7 @@ export const idlService = IDL.Service({
         ContactPhone,
         ParentName,
         EnrollmentDate,
+        IDL.Opt(IDL.Int),
         IsActive,
       ],
       [Identifier],
@@ -349,6 +393,7 @@ export const idlService = IDL.Service({
         ContactEmail,
         ContactPhone,
         DateOfJoin,
+        IDL.Opt(IDL.Text),
         IsActive,
       ],
       [Identifier],
@@ -444,6 +489,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(LeaveRequest)],
       ['query'],
     ),
+  'getLeaveRequestsByStaffId' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(LeaveRequest)],
+      ['query'],
+    ),
   'getLesson' : IDL.Func([Identifier], [Lesson], ['query']),
   'getLessonsByCourse' : IDL.Func([CourseId], [IDL.Vec(Lesson)], ['query']),
   'getOverdueInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
@@ -454,10 +504,20 @@ export const idlService = IDL.Service({
       [IDL.Vec(PayrollRecord)],
       ['query'],
     ),
+  'getPendingAttendanceCorrections' : IDL.Func(
+      [],
+      [IDL.Vec(AttendanceCorrection)],
+      ['query'],
+    ),
   'getPendingLeaveRequests' : IDL.Func([], [IDL.Vec(LeaveRequest)], ['query']),
   'getResourceLinksByCourse' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(ResourceLink)],
+      ['query'],
+    ),
+  'getSalarySlipData' : IDL.Func(
+      [IDL.Text],
+      [IDL.Opt(SalarySlipData)],
       ['query'],
     ),
   'getSchoolProfile' : IDL.Func([], [SchoolProfile], ['query']),
@@ -478,6 +538,16 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getTeacher' : IDL.Func([Identifier], [Teacher], ['query']),
+  'getTeacherAttendanceByDate' : IDL.Func(
+      [IDL.Int],
+      [IDL.Vec(TeacherAttendance)],
+      ['query'],
+    ),
+  'getTeacherAttendanceByTeacher' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(TeacherAttendance)],
+      ['query'],
+    ),
   'getTotalExpenses' : IDL.Func([], [IDL.Nat], ['query']),
   'getTotalFeesCollected' : IDL.Func([], [IDL.Nat], ['query']),
   'getUnpaidInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
@@ -495,11 +565,17 @@ export const idlService = IDL.Service({
       [IDL.Text],
       [],
     ),
+  'rejectAttendanceCorrection' : IDL.Func([IDL.Text], [], []),
   'rejectLeaveRequest' : IDL.Func([Identifier], [], []),
   'removeStudentFromClass' : IDL.Func([Identifier, Identifier], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'submitAssignment' : IDL.Func(
       [Identifier, Identifier, IDL.Text],
+      [IDL.Text],
+      [],
+    ),
+  'submitAttendanceCorrection' : IDL.Func(
+      [IDL.Text, IDL.Int, IDL.Text, IDL.Text],
       [IDL.Text],
       [],
     ),
@@ -536,7 +612,17 @@ export const idlService = IDL.Service({
       [],
     ),
   'updateFeeStructure' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        GradeLevel,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IsActive,
+      ],
       [IDL.Text],
       [],
     ),
@@ -572,6 +658,7 @@ export const idlService = IDL.Service({
         ContactPhone,
         ParentName,
         EnrollmentDate,
+        IDL.Opt(IDL.Int),
         IsActive,
       ],
       [Identifier],
@@ -591,6 +678,7 @@ export const idlService = IDL.Service({
         ContactEmail,
         ContactPhone,
         DateOfJoin,
+        IDL.Opt(IDL.Text),
         IsActive,
       ],
       [Identifier],
@@ -656,6 +744,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const Student = IDL.Record({
     'id' : Identifier,
+    'dob' : IDL.Opt(IDL.Int),
     'isActive' : IsActive,
     'grade' : Grade,
     'contactEmail' : ContactEmail,
@@ -669,6 +758,7 @@ export const idlFactory = ({ IDL }) => {
     'id' : Identifier,
     'subjects' : Subjects,
     'isActive' : IsActive,
+    'grade' : IDL.Opt(IDL.Text),
     'contactEmail' : ContactEmail,
     'lastName' : IDL.Text,
     'dateOfJoin' : DateOfJoin,
@@ -719,10 +809,12 @@ export const idlFactory = ({ IDL }) => {
   const FeeStructure = IDL.Record({
     'id' : FeeId,
     'name' : IDL.Text,
+    'feeType' : IDL.Text,
     'description' : IDL.Text,
     'isActive' : IsActive,
     'academicYear' : IDL.Text,
     'gradeLevel' : GradeLevel,
+    'feeTypeLabel' : IDL.Text,
     'amount' : IDL.Nat,
   });
   const Payment = IDL.Record({
@@ -813,6 +905,23 @@ export const idlFactory = ({ IDL }) => {
     'allowances' : IDL.Nat,
     'basicSalary' : IDL.Nat,
   });
+  const AttendanceCorrection = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'staffId' : IDL.Text,
+    'date' : IDL.Int,
+    'requestedStatus' : IDL.Text,
+    'reason' : IDL.Text,
+  });
+  const SalarySlipData = IDL.Record({
+    'month' : IDL.Nat,
+    'staffId' : IDL.Text,
+    'year' : IDL.Nat,
+    'deductions' : IDL.Nat,
+    'netSalary' : IDL.Nat,
+    'allowances' : IDL.Nat,
+    'basicSalary' : IDL.Nat,
+  });
   const SchoolProfile = IDL.Record({
     'motto' : IDL.Text,
     'email' : IDL.Text,
@@ -829,6 +938,13 @@ export const idlFactory = ({ IDL }) => {
     'score' : IDL.Opt(IDL.Nat),
     'assignmentId' : Identifier,
     'submissionText' : IDL.Text,
+  });
+  const TeacherAttendance = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'date' : IDL.Int,
+    'notes' : IDL.Text,
+    'teacherId' : IDL.Text,
   });
   const AttendanceRecordInput = IDL.Record({
     'absentStudents' : IDL.Vec(Identifier),
@@ -864,6 +980,12 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text],
         [],
       ),
+    'addTeacherAttendance' : IDL.Func(
+        [IDL.Text, IDL.Int, IDL.Text, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
+    'approveAttendanceCorrection' : IDL.Func([IDL.Text], [], []),
     'approveLeaveRequest' : IDL.Func([Identifier], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'convertApplicantToStudent' : IDL.Func([IDL.Text], [Identifier], []),
@@ -890,7 +1012,16 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'createFeeStructure' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          GradeLevel,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IsActive,
+        ],
         [IDL.Text],
         [],
       ),
@@ -924,6 +1055,7 @@ export const idlFactory = ({ IDL }) => {
           ContactPhone,
           ParentName,
           EnrollmentDate,
+          IDL.Opt(IDL.Int),
           IsActive,
         ],
         [Identifier],
@@ -942,6 +1074,7 @@ export const idlFactory = ({ IDL }) => {
           ContactEmail,
           ContactPhone,
           DateOfJoin,
+          IDL.Opt(IDL.Text),
           IsActive,
         ],
         [Identifier],
@@ -1049,6 +1182,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(LeaveRequest)],
         ['query'],
       ),
+    'getLeaveRequestsByStaffId' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(LeaveRequest)],
+        ['query'],
+      ),
     'getLesson' : IDL.Func([Identifier], [Lesson], ['query']),
     'getLessonsByCourse' : IDL.Func([CourseId], [IDL.Vec(Lesson)], ['query']),
     'getOverdueInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
@@ -1059,6 +1197,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(PayrollRecord)],
         ['query'],
       ),
+    'getPendingAttendanceCorrections' : IDL.Func(
+        [],
+        [IDL.Vec(AttendanceCorrection)],
+        ['query'],
+      ),
     'getPendingLeaveRequests' : IDL.Func(
         [],
         [IDL.Vec(LeaveRequest)],
@@ -1067,6 +1210,11 @@ export const idlFactory = ({ IDL }) => {
     'getResourceLinksByCourse' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(ResourceLink)],
+        ['query'],
+      ),
+    'getSalarySlipData' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(SalarySlipData)],
         ['query'],
       ),
     'getSchoolProfile' : IDL.Func([], [SchoolProfile], ['query']),
@@ -1091,6 +1239,16 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getTeacher' : IDL.Func([Identifier], [Teacher], ['query']),
+    'getTeacherAttendanceByDate' : IDL.Func(
+        [IDL.Int],
+        [IDL.Vec(TeacherAttendance)],
+        ['query'],
+      ),
+    'getTeacherAttendanceByTeacher' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(TeacherAttendance)],
+        ['query'],
+      ),
     'getTotalExpenses' : IDL.Func([], [IDL.Nat], ['query']),
     'getTotalFeesCollected' : IDL.Func([], [IDL.Nat], ['query']),
     'getUnpaidInvoices' : IDL.Func([], [IDL.Vec(StudentInvoice)], ['query']),
@@ -1108,11 +1266,17 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text],
         [],
       ),
+    'rejectAttendanceCorrection' : IDL.Func([IDL.Text], [], []),
     'rejectLeaveRequest' : IDL.Func([Identifier], [], []),
     'removeStudentFromClass' : IDL.Func([Identifier, Identifier], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'submitAssignment' : IDL.Func(
         [Identifier, Identifier, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
+    'submitAttendanceCorrection' : IDL.Func(
+        [IDL.Text, IDL.Int, IDL.Text, IDL.Text],
         [IDL.Text],
         [],
       ),
@@ -1149,7 +1313,17 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'updateFeeStructure' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, GradeLevel, IDL.Text, IsActive],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          GradeLevel,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IsActive,
+        ],
         [IDL.Text],
         [],
       ),
@@ -1185,6 +1359,7 @@ export const idlFactory = ({ IDL }) => {
           ContactPhone,
           ParentName,
           EnrollmentDate,
+          IDL.Opt(IDL.Int),
           IsActive,
         ],
         [Identifier],
@@ -1204,6 +1379,7 @@ export const idlFactory = ({ IDL }) => {
           ContactEmail,
           ContactPhone,
           DateOfJoin,
+          IDL.Opt(IDL.Text),
           IsActive,
         ],
         [Identifier],
