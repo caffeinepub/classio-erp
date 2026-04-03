@@ -1,11 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, IndianRupee } from "lucide-react";
+import { IndianRupee, Printer } from "lucide-react";
 import { EmptyState, PageHeader } from "../components/shared";
 import { useLocalAuth } from "../hooks/useLocalAuth";
 import { useSalarySlipData } from "../hooks/useQueries";
-import { formatINR } from "../utils/currencyUtils";
 
 const MONTHS = [
   "January",
@@ -22,6 +21,10 @@ const MONTHS = [
   "December",
 ];
 
+function formatAmt(n: number): string {
+  return `20b9${n.toLocaleString("en-IN")}`;
+}
+
 export default function SalarySlipPage() {
   const { user } = useLocalAuth();
   const staffId = user?.username ?? "";
@@ -36,6 +39,59 @@ export default function SalarySlipPage() {
     ? (MONTHS[Number(salaryData.month) - 1] ?? String(salaryData.month))
     : "";
 
+  // Derive itemized breakdown from backend totals
+  const basic = salaryData ? Number(salaryData.basicSalary) : 0;
+  const storedAllowances = salaryData ? Number(salaryData.allowances) : 0;
+  const storedDeductions = salaryData ? Number(salaryData.deductions) : 0;
+
+  // Try to load stored breakdown from localStorage
+  const getBreakdown = () => {
+    if (!salaryData) return null;
+    const key = `payroll_breakdown_${salaryData.staffId}_${salaryData.month}_${salaryData.year}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        return JSON.parse(stored) as {
+          hra: number;
+          conveyance: number;
+          medical: number;
+          specialAllowance: number;
+          pf: number;
+          tds: number;
+          professionalTax: number;
+          absentDays: number;
+          absentDeduction: number;
+          otherDeductions: number;
+        };
+      } catch {
+        /* fall through */
+      }
+    }
+    return null;
+  };
+
+  const stored = getBreakdown();
+
+  const hra = stored ? stored.hra : Math.round(basic * 0.4);
+  const conveyance = stored ? stored.conveyance : 1600;
+  const medical = stored ? stored.medical : 1250;
+  const specialAllowance = stored
+    ? stored.specialAllowance
+    : Math.max(0, storedAllowances - hra - conveyance - medical);
+
+  const pf = stored ? stored.pf : Math.round(basic * 0.12);
+  const professionalTax = stored ? stored.professionalTax : 200;
+  const tdsAndOther = stored
+    ? stored.tds
+    : Math.max(0, storedDeductions - pf - professionalTax);
+  const absentDeduction = stored ? stored.absentDeduction : 0;
+  const otherDeductions = stored ? stored.otherDeductions : 0;
+
+  const grossEarnings = basic + hra + conveyance + medical + specialAllowance;
+  const totalDeductions =
+    pf + tdsAndOther + professionalTax + absentDeduction + otherDeductions;
+  const netPay = salaryData ? Number(salaryData.netSalary) : 0;
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <PageHeader
@@ -48,7 +104,7 @@ export default function SalarySlipPage() {
               onClick={handlePrint}
               className="no-print"
             >
-              <Download className="h-4 w-4 mr-2" /> Download / Print
+              <Printer className="h-4 w-4 mr-2" /> Print / Download
             </Button>
           ) : undefined
         }
@@ -68,19 +124,19 @@ export default function SalarySlipPage() {
       ) : (
         <div id="salary-slip-print">
           <Card className="shadow-card">
-            {/* Header */}
-            <CardHeader className="border-b border-border">
-              <div className="flex items-center justify-between">
+            {/* Slip Header */}
+            <CardHeader className="border-b-2 border-primary pb-4">
+              <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
                     <img
                       src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
                       alt="Classio ERP"
-                      className="w-10 h-10 rounded-lg object-cover"
+                      className="w-11 h-11 rounded-lg object-cover"
                     />
                   </div>
                   <div>
-                    <h2 className="font-bold text-lg text-foreground">
+                    <h2 className="font-bold text-xl text-foreground">
                       Classio ERP
                     </h2>
                     <p className="text-sm text-muted-foreground">
@@ -89,7 +145,7 @@ export default function SalarySlipPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-foreground">SALARY SLIP</p>
+                  <p className="text-lg font-bold text-primary">SALARY SLIP</p>
                   <p className="text-sm text-muted-foreground">
                     {monthName} {Number(salaryData.year)}
                   </p>
@@ -97,114 +153,139 @@ export default function SalarySlipPage() {
               </div>
             </CardHeader>
 
-            <CardContent className="pt-6">
-              {/* Employee Info */}
-              <div className="grid grid-cols-2 gap-4 mb-6 p-4 rounded-lg bg-muted/30">
+            <CardContent className="pt-5 space-y-5">
+              {/* Employee Details */}
+              <div className="grid grid-cols-2 gap-3 bg-muted/30 rounded-lg p-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">Employee ID</p>
-                  <p className="font-mono text-sm font-medium mt-0.5">
-                    {user?.username}
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Employee Name
+                  </p>
+                  <p className="text-sm font-semibold mt-0.5">
+                    {user?.name ?? user?.username}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Employee Name</p>
-                  <p className="text-sm font-medium mt-0.5">{user?.name}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Employee ID
+                  </p>
+                  <p className="font-mono text-sm font-medium mt-0.5">
+                    {user?.username?.toUpperCase()}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Pay Period</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Designation
+                  </p>
+                  <p className="text-sm font-medium capitalize mt-0.5">
+                    {user?.role ?? "Teacher"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Pay Period
+                  </p>
                   <p className="text-sm font-medium mt-0.5">
                     {monthName} {Number(salaryData.year)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Role</p>
-                  <p className="text-sm font-medium capitalize mt-0.5">
-                    {user?.role}
-                  </p>
-                </div>
               </div>
 
-              {/* Earnings & Deductions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Earnings & Deductions — side-by-side on md+ */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Earnings */}
-                <div>
-                  <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
-                    <IndianRupee className="h-4 w-4 text-success" />
-                    Earnings
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Basic Salary
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <div className="bg-emerald-50 border-b border-border px-3 py-2 flex items-center gap-1.5">
+                    <IndianRupee className="h-3.5 w-3.5 text-emerald-700" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                      Earnings
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {[
+                      ["Basic Salary", basic],
+                      ["HRA", hra],
+                      ["Conveyance Allowance", conveyance],
+                      ["Medical Allowance", medical],
+                      ["Special Allowance", specialAllowance],
+                    ].map(([label, amount]) => (
+                      <div
+                        key={String(label)}
+                        className="flex justify-between px-3 py-2 text-sm"
+                      >
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-medium text-emerald-700">
+                          {formatAmt(Number(amount))}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between px-3 py-2.5 text-sm bg-emerald-50/60">
+                      <span className="font-bold text-emerald-800">
+                        Gross Earnings
                       </span>
-                      <span className="font-medium">
-                        {formatINR(salaryData.basicSalary)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Allowances</span>
-                      <span className="font-medium text-success">
-                        +{formatINR(salaryData.allowances)}
-                      </span>
-                    </div>
-                    <div className="border-t border-border pt-2 flex justify-between text-sm font-semibold">
-                      <span>Gross Salary</span>
-                      <span>
-                        {formatINR(
-                          BigInt(
-                            Number(salaryData.basicSalary) +
-                              Number(salaryData.allowances),
-                          ),
-                        )}
+                      <span className="font-bold text-emerald-800">
+                        {formatAmt(grossEarnings)}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Deductions */}
-                <div>
-                  <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
-                    <IndianRupee className="h-4 w-4 text-destructive" />
-                    Deductions
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <div className="bg-red-50 border-b border-border px-3 py-2 flex items-center gap-1.5">
+                    <IndianRupee className="h-3.5 w-3.5 text-red-700" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-red-700">
+                      Deductions
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {[
+                      ["Provident Fund (PF)", pf],
+                      ["TDS / Income Tax", tdsAndOther],
+                      ["Professional Tax", professionalTax],
+                      ["Absent Day Deduction", absentDeduction],
+                      ["Other Deductions", otherDeductions],
+                    ].map(([label, amount]) => (
+                      <div
+                        key={String(label)}
+                        className="flex justify-between px-3 py-2 text-sm"
+                      >
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-medium text-red-600">
+                          {formatAmt(Number(amount))}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between px-3 py-2.5 text-sm bg-red-50/60">
+                      <span className="font-bold text-red-800">
                         Total Deductions
                       </span>
-                      <span className="font-medium text-destructive">
-                        -{formatINR(salaryData.deductions)}
-                      </span>
-                    </div>
-                    <div className="border-t border-border pt-2 flex justify-between text-sm font-semibold">
-                      <span>Total Deducted</span>
-                      <span className="text-destructive">
-                        {formatINR(salaryData.deductions)}
+                      <span className="font-bold text-red-800">
+                        {formatAmt(totalDeductions)}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Net Salary */}
-              <div className="rounded-xl bg-primary/10 border border-primary/20 p-5 flex items-center justify-between">
+              {/* Net Pay */}
+              <div className="rounded-xl bg-primary/10 border border-primary/30 p-5 flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Net Salary</p>
+                  <p className="text-sm font-bold text-primary">NET PAY</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Gross Salary - Deductions
+                    Gross Earnings − Total Deductions
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">
-                    {formatINR(salaryData.netSalary)}
+                  <p className="text-3xl font-bold text-primary">
+                    {formatAmt(netPay)}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-1">
                     For {monthName} {Number(salaryData.year)}
                   </p>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground text-center mt-4">
+              <p className="text-xs text-muted-foreground text-center border-t border-dashed border-border pt-3">
                 This is a computer-generated salary slip. No signature required.
               </p>
             </CardContent>
