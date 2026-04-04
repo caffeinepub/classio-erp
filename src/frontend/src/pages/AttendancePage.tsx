@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { CheckCircle, Loader2, XCircle } from "lucide-react";
+import { CheckCircle, ClipboardList, Loader2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, PageHeader } from "../components/shared";
@@ -20,8 +21,11 @@ import {
   useAllClasses,
   useAllStudents,
   useAllTeachers,
+  useApproveAttendanceCorrection,
   useAttendanceByClass,
+  usePendingAttendanceCorrections,
   useRecordAttendance,
+  useRejectAttendanceCorrection,
   useTeacherAttendanceByDate,
 } from "../hooks/useQueries";
 import { bigIntToDateString, dateToBigInt } from "../utils/dateUtils";
@@ -32,6 +36,28 @@ export default function AttendancePage() {
   const { data: teachers } = useAllTeachers();
   const recordAttendance = useRecordAttendance();
   const addTeacherAttendance = useAddTeacherAttendance();
+  const { data: pendingCorrections = [], isLoading: correctionsLoading } =
+    usePendingAttendanceCorrections();
+  const approveCorrection = useApproveAttendanceCorrection();
+  const rejectCorrection = useRejectAttendanceCorrection();
+
+  const handleApproveCorrection = async (id: string) => {
+    try {
+      await approveCorrection.mutateAsync(id);
+      toast.success("Attendance request approved");
+    } catch {
+      toast.error("Failed to approve");
+    }
+  };
+
+  const handleRejectCorrection = async (id: string) => {
+    try {
+      await rejectCorrection.mutateAsync(id);
+      toast.success("Attendance request rejected");
+    } catch {
+      toast.error("Failed to reject");
+    }
+  };
 
   // Student attendance state
   const [selectedClassId, setSelectedClassId] = useState("");
@@ -146,6 +172,19 @@ export default function AttendancePage() {
         <TabsList className="mb-6" data-ocid="attendance.tab">
           <TabsTrigger value="student">Student Attendance</TabsTrigger>
           <TabsTrigger value="teacher">Teacher Attendance</TabsTrigger>
+          <TabsTrigger
+            value="requests"
+            className="relative"
+            data-ocid="attendance.requests.tab"
+          >
+            <ClipboardList className="h-4 w-4 mr-1.5" />
+            Teacher Requests
+            {(pendingCorrections as any[]).length > 0 && (
+              <span className="ml-1.5 bg-primary text-primary-foreground text-xs rounded-full px-1.5 py-0.5 leading-none">
+                {(pendingCorrections as any[]).length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="history">View History</TabsTrigger>
         </TabsList>
 
@@ -423,6 +462,94 @@ export default function AttendancePage() {
                     ))}
                   </div>
                 ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        {/* Teacher Attendance Requests */}
+        <TabsContent value="requests">
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Teacher Attendance Requests
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Approve or reject attendance submissions from teachers
+              </p>
+            </CardHeader>
+            <CardContent>
+              {correctionsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (pendingCorrections as any[]).length === 0 ? (
+                <EmptyState
+                  title="No pending requests"
+                  description="Teacher attendance requests will appear here for approval"
+                  ocid="attendance.requests.empty_state"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {(pendingCorrections as any[]).map((req: any, i: number) => (
+                    <div
+                      key={req.id}
+                      data-ocid={`attendance.requests.item.${i + 1}`}
+                      className="flex items-center justify-between gap-4 p-4 rounded-lg border border-border bg-muted/20 flex-wrap"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">
+                            {req.staffId}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 border-green-200 text-xs"
+                          >
+                            {req.requestedStatus}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs capitalize"
+                          >
+                            {req.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Date: {bigIntToDateString(req.date)}
+                        </p>
+                        {req.reason && (
+                          <p className="text-xs text-muted-foreground italic">
+                            {req.reason}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-green-300 text-green-700 hover:bg-green-50"
+                          disabled={approveCorrection.isPending}
+                          onClick={() => handleApproveCorrection(req.id)}
+                          data-ocid={`attendance.requests.approve.${i + 1}`}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1.5" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-300 text-red-600 hover:bg-red-50"
+                          disabled={rejectCorrection.isPending}
+                          onClick={() => handleRejectCorrection(req.id)}
+                          data-ocid={`attendance.requests.reject.${i + 1}`}
+                        >
+                          <XCircle className="h-4 w-4 mr-1.5" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
