@@ -34,7 +34,7 @@ import {
 type Period = "month" | "year" | "all";
 
 const fmt = (n: bigint | number): string =>
-  `₹${Number(n).toLocaleString("en-IN")}`;
+  `\u20b9${Number(n).toLocaleString("en-IN")}`;
 
 const MONTHS = [
   "Jan",
@@ -51,8 +51,19 @@ const MONTHS = [
   "Dec",
 ];
 
-function nsToDate(ns: bigint): Date {
-  return new Date(Number(ns) / 1_000_000);
+/**
+ * Convert a stored timestamp to a JS Date.
+ * The backend (Time.now()) stores nanoseconds (>1e15 for post-2001 dates).
+ * The frontend (Date.now() / getTime()) stores milliseconds (~1.7e12).
+ * We detect which unit by checking if the value exceeds 1e13 ms (year 2286),
+ * which is a safe threshold: anything bigger must be nanoseconds.
+ */
+function toDate(ts: bigint | number): Date {
+  const n = Number(ts);
+  // If value > 1e15 it's nanoseconds (IC backend Time.now())
+  if (n > 1e15) return new Date(n / 1_000_000);
+  // Otherwise treat as milliseconds (frontend Date.now())
+  return new Date(n);
 }
 
 function isInPeriod(date: Date, period: Period): boolean {
@@ -124,14 +135,14 @@ export default function FinancialReportPage() {
   // ── Filtered payments ────────────────────────────────────────────────────
   const filteredPayments = useMemo(() => {
     return (allPayments as any[]).filter((p: any) =>
-      isInPeriod(nsToDate(p.paymentDate), period),
+      isInPeriod(toDate(p.paymentDate), period),
     );
   }, [allPayments, period]);
 
   // ── Filtered expenses ────────────────────────────────────────────────────
   const filteredExpenses = useMemo(() => {
     return (allExpenses as any[]).filter((e: any) =>
-      isInPeriod(nsToDate(e.date), period),
+      isInPeriod(toDate(e.date), period),
     );
   }, [allExpenses, period]);
 
@@ -149,7 +160,7 @@ export default function FinancialReportPage() {
   const paymentsByMonth = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of filteredPayments) {
-      const d = nsToDate(p.paymentDate);
+      const d = toDate(p.paymentDate);
       const key = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
       map[key] = (map[key] || 0) + Number(p.amount);
     }
@@ -186,7 +197,7 @@ export default function FinancialReportPage() {
   const isProfit = netPnL >= 0;
 
   // ── Balance Sheet ────────────────────────────────────────────────────────
-  const cashCollected = totalIncome; // same as total income
+  const cashCollected = totalIncome;
 
   const outstandingReceivables = useMemo(() => {
     return (allInvoices as any[])
@@ -229,7 +240,9 @@ export default function FinancialReportPage() {
 
       {/* Print-only header */}
       <div className="hidden print:block mb-6">
-        <h1 className="text-2xl font-bold">Classio ERP — Financial Report</h1>
+        <h1 className="text-2xl font-bold">
+          Classio ERP &#8212; Financial Report
+        </h1>
         <p className="text-muted-foreground">Period: {periodLabel(period)}</p>
         <p className="text-xs text-muted-foreground">
           Generated: {new Date().toLocaleString("en-IN")}
@@ -427,7 +440,7 @@ export default function FinancialReportPage() {
                           <TableCell className="text-right text-muted-foreground">
                             {totalExpenses > 0
                               ? `${((amount / totalExpenses) * 100).toFixed(1)}%`
-                              : "—"}
+                              : "\u2014"}
                           </TableCell>
                         </TableRow>
                       ))
@@ -473,7 +486,7 @@ export default function FinancialReportPage() {
                       Total Expenses
                     </span>
                     <span className="font-semibold text-destructive">
-                      (−) {fmt(totalExpenses)}
+                      (&#8722;) {fmt(totalExpenses)}
                     </span>
                   </div>
                   <Separator />
@@ -493,7 +506,7 @@ export default function FinancialReportPage() {
                         isProfit ? "text-emerald-600" : "text-destructive"
                       }`}
                     >
-                      {isProfit ? "+" : "−"}
+                      {isProfit ? "+" : "\u2212"}
                       {fmt(Math.abs(netPnL))}
                     </span>
                   </div>

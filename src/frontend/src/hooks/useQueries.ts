@@ -21,6 +21,7 @@ import type {
   Student,
   Teacher,
   TeacherAttendance,
+  UserAccount,
   UserProfile,
   UserRole,
 } from "../backend.d";
@@ -115,6 +116,64 @@ export function useGetUserProfile(user: Principal | null) {
       return actor.getUserProfile(user);
     },
     enabled: !!actor && !isFetching && !!user,
+  });
+}
+
+// ── User Accounts (persistent login store) ────────────────────────────────
+export function useAllUserAccounts() {
+  const { actor, isFetching } = useActor();
+  return useQuery<UserAccount[]>({
+    queryKey: ["userAccounts"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllUserAccounts();
+    },
+    enabled: !!actor && !isFetching,
+    staleTime: 0,
+  });
+}
+
+export function useCreateUserAccount() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      username: string;
+      password: string;
+      role: string;
+      name: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.createUserAccount(
+        data.username,
+        data.password,
+        data.role,
+        data.name,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["userAccounts"] }),
+  });
+}
+
+export function useDeleteUserAccount() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (username: string) => {
+      if (!actor) throw new Error("No actor");
+      return actor.deleteUserAccount(username);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["userAccounts"] }),
+  });
+}
+
+export function useValidateUserAccount() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: (data: { username: string; password: string }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.validateUserAccount(data.username, data.password);
+    },
   });
 }
 

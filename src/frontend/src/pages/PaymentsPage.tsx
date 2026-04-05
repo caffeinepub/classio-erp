@@ -282,7 +282,7 @@ export default function PaymentsPage() {
         <div className="receipt-print-wrapper fixed inset-0 z-50 flex items-center justify-center bg-black/50 no-print-bg">
           <div
             ref={receiptRef}
-            className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-y-auto max-h-[90vh]"
             data-ocid="payments.modal"
           >
             <div className="bg-primary p-5 text-primary-foreground">

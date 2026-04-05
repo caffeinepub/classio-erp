@@ -36,21 +36,21 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import type { Teacher } from "../backend.d";
 import { EmptyState, PageHeader } from "../components/shared";
-import { useLocalAuth } from "../hooks/useLocalAuth";
-import { useAllTeachers } from "../hooks/useQueries";
+import {
+  useAllTeachers,
+  useAllUserAccounts,
+  useCreateUserAccount,
+  useDeleteUserAccount,
+} from "../hooks/useQueries";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function generatePassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  return Array.from(
-    { length: 8 },
-    () => chars[Math.floor(Math.random() * chars.length)],
-  ).join("");
+  return "teacher123";
 }
 
 function generateUsername(firstName: string, lastName: string): string {
@@ -58,41 +58,6 @@ function generateUsername(firstName: string, lastName: string): string {
     /\s/g,
     "",
   );
-}
-
-type TeacherAccount = {
-  username: string;
-  name: string;
-  role: string;
-  password: string;
-};
-
-function getTeacherAccounts(): TeacherAccount[] {
-  try {
-    const raw = localStorage.getItem("classio_registered_users");
-    if (!raw) return [];
-    const map = JSON.parse(raw) as Record<
-      string,
-      { password: string; role: string; name: string }
-    >;
-    return Object.entries(map)
-      .filter(([, data]) => data.role === "teacher")
-      .map(([username, data]) => ({ username, ...data }));
-  } catch {
-    return [];
-  }
-}
-
-function deleteTeacherAccount(username: string) {
-  try {
-    const raw = localStorage.getItem("classio_registered_users");
-    if (!raw) return;
-    const map = JSON.parse(raw) as Record<string, unknown>;
-    delete map[username.toLowerCase()];
-    localStorage.setItem("classio_registered_users", JSON.stringify(map));
-  } catch {
-    // ignore
-  }
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -152,15 +117,23 @@ function CredRow({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function UserManagementPage() {
-  const { registerUser } = useLocalAuth();
   const {
     data: allTeachers = [],
     isLoading: teachersLoading,
     refetch: refetchTeachers,
   } = useAllTeachers();
 
-  const [refreshKey, setRefreshKey] = useState(0);
-  const teachers = refreshKey >= 0 ? getTeacherAccounts() : [];
+  const {
+    data: userAccounts = [],
+    isLoading: accountsLoading,
+    refetch: refetchAccounts,
+  } = useAllUserAccounts();
+
+  const createAccountMutation = useCreateUserAccount();
+  const deleteAccountMutation = useDeleteUserAccount();
+
+  // Only show teacher accounts
+  const teachers = userAccounts.filter((a) => a.role === "teacher");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogStep, setDialogStep] = useState<DialogStep>("form");
@@ -176,8 +149,6 @@ export default function UserManagementPage() {
   const [errors, setErrors] = useState<FormErrors>({});
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-
-  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   // Filter teachers that don't already have a login
   const existingNames = new Set(teachers.map((t) => t.name.toLowerCase()));
@@ -240,36 +211,41 @@ export default function UserManagementPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!validate()) return;
     setIsSubmitting(true);
-    setTimeout(() => {
-      const result = registerUser(
-        username.trim(),
+    try {
+      const created = await createAccountMutation.mutateAsync({
+        username: username.trim(),
         password,
-        "teacher",
-        selectedTeacherName,
-      );
-      if (result.success) {
+        role: "teacher",
+        name: selectedTeacherName,
+      });
+      if (created) {
         setSuccessInfo({
           name: selectedTeacherName,
           username: username.trim(),
           password,
         });
         setDialogStep("success");
-        refresh();
       } else {
-        toast.error(result.error ?? "Failed to create teacher login");
+        toast.error("Username already exists. Please choose a different one.");
       }
+    } catch {
+      toast.error("Failed to create teacher login. Please try again.");
+    } finally {
       setIsSubmitting(false);
-    }, 300);
+    }
   };
 
-  const handleDelete = (uname: string) => {
-    deleteTeacherAccount(uname);
-    toast.success(`Teacher account "${uname}" removed`);
+  const handleDelete = async (uname: string) => {
+    try {
+      await deleteAccountMutation.mutateAsync(uname);
+      toast.success(`Teacher account "${uname}" removed`);
+    } catch {
+      toast.error("Failed to remove account");
+    }
     setDeleteTarget(null);
-    refresh();
   };
 
   const resetDialog = () => {
@@ -287,6 +263,8 @@ export default function UserManagementPage() {
     if (!open) resetDialog();
     setIsDialogOpen(open);
   };
+
+  const isLoadingList = accountsLoading;
 
   return (
     <div className="p-6 max-w-5xl mx-auto animate-fade-in">
@@ -346,9 +324,23 @@ export default function UserManagementPage() {
               login access
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => void refetchAccounts()}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            title="Refresh list"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
         </div>
 
-        {teachers.length === 0 ? (
+        {isLoadingList ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Loading accounts...
+          </div>
+        ) : teachers.length === 0 ? (
           <EmptyState
             ocid="teacher_accounts.empty_state"
             title="No teacher logins yet"
@@ -628,7 +620,7 @@ export default function UserManagementPage() {
                 <Button
                   data-ocid="teacher_accounts.submit_button"
                   type="button"
-                  onClick={handleCreate}
+                  onClick={() => void handleCreate()}
                   disabled={isSubmitting || !selectedTeacherId}
                   className="gap-2"
                 >
@@ -678,8 +670,9 @@ export default function UserManagementPage() {
                 <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200">
                   <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                   <p className="text-xs text-amber-800">
-                    Share these credentials with the teacher. The password
-                    cannot be retrieved after closing this window.
+                    Share these credentials with the teacher. Credentials are
+                    now saved to the school database and will work on any
+                    device.
                   </p>
                 </div>
               </div>
@@ -731,7 +724,7 @@ export default function UserManagementPage() {
               <button
                 type="button"
                 data-ocid="teacher_accounts.delete.confirm_button"
-                onClick={() => handleDelete(deleteTarget)}
+                onClick={() => void handleDelete(deleteTarget)}
                 className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors"
               >
                 Remove Login

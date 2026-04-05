@@ -178,6 +178,12 @@ export interface UserProfile {
     name: string;
     role: string;
 }
+export interface UserAccount {
+    username: string;
+    password: string;
+    role: string;
+    name: string;
+}
 export type Salary = bigint;
 export type Timestamp = bigint;
 export type StartDate = bigint;
@@ -291,6 +297,7 @@ export interface backendInterface {
     createStudent(firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, dob: bigint | null, isActive: IsActive): Promise<Identifier>;
     createStudentInvoice(studentId: Identifier, feeStructureId: string, amount: bigint, dueDate: bigint, status: string, issuedDate: bigint): Promise<string>;
     createTeacher(firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, grade: string | null, isActive: IsActive): Promise<Identifier>;
+    createUserAccount(username: string, password: string, role: string, name: string): Promise<boolean>;
     deleteApplicant(id: string): Promise<void>;
     deleteClass(id: Identifier): Promise<void>;
     deleteCourse(id: string): Promise<void>;
@@ -302,6 +309,7 @@ export interface backendInterface {
     deleteStudent(id: Identifier): Promise<void>;
     deleteStudentInvoice(id: string): Promise<void>;
     deleteTeacher(id: Identifier): Promise<void>;
+    deleteUserAccount(username: string): Promise<void>;
     enrollStudentInClass(classId: Identifier, studentId: Identifier | null): Promise<void>;
     generatePayroll(staffId: string, month: bigint, year: bigint, basicSalary: bigint, allowances: bigint, deductions: bigint, netPay: bigint): Promise<string>;
     getActiveLMSCourses(): Promise<Array<Course>>;
@@ -321,6 +329,7 @@ export interface backendInterface {
     getAllStudentInvoices(): Promise<Array<StudentInvoice>>;
     getAllStudents(): Promise<Array<Student>>;
     getAllTeachers(): Promise<Array<Teacher>>;
+    getAllUserAccounts(): Promise<Array<UserAccount>>;
     getAnnouncement(id: string): Promise<Announcement>;
     getApplicant(id: string): Promise<Applicant>;
     getApplicantsByStatus(status: string): Promise<Array<Applicant>>;
@@ -376,6 +385,7 @@ export interface backendInterface {
     getUnpaidInvoices(): Promise<Array<StudentInvoice>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     gradeSubmission(submissionId: string, score: bigint, feedback: string): Promise<void>;
+    importUserAccounts(accounts: Array<UserAccount>): Promise<bigint>;
     isCallerAdmin(): Promise<boolean>;
     markPayrollAsPaid(payrollId: string): Promise<void>;
     recordAttendance(attendanceInput: AttendanceRecordInput): Promise<string>;
@@ -397,4 +407,6 @@ export interface backendInterface {
     updateStudent(id: Identifier, firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, dob: bigint | null, isActive: IsActive): Promise<Identifier>;
     updateStudentInvoice(id: string, studentId: Identifier, feeStructureId: string, amount: bigint, dueDate: bigint, status: string, issuedDate: bigint): Promise<string>;
     updateTeacher(id: Identifier, firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, grade: string | null, isActive: IsActive): Promise<Identifier>;
+    updateUserAccountPassword(username: string, newPassword: string): Promise<boolean>;
+    validateUserAccount(username: string, password: string): Promise<UserAccount | null>;
 }

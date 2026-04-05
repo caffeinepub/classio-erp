@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Info,
   Loader2,
+  RefreshCw,
   ShieldCheck,
   Trash2,
   UserPlus,
@@ -28,42 +29,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "../components/shared";
 import { useLocalAuth } from "../hooks/useLocalAuth";
-
-type RegisteredUser = {
-  username: string;
-  role: string;
-  name: string;
-  password: string;
-};
-
-function getRegisteredUsers(): RegisteredUser[] {
-  try {
-    const raw = localStorage.getItem("classio_registered_users");
-    if (!raw) return [];
-    const map = JSON.parse(raw) as Record<
-      string,
-      { password: string; role: string; name: string }
-    >;
-    return Object.entries(map).map(([username, data]) => ({
-      username,
-      ...data,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-function deleteRegisteredUser(username: string) {
-  try {
-    const raw = localStorage.getItem("classio_registered_users");
-    if (!raw) return;
-    const map = JSON.parse(raw) as Record<string, unknown>;
-    delete map[username.toLowerCase()];
-    localStorage.setItem("classio_registered_users", JSON.stringify(map));
-  } catch {
-    // ignore
-  }
-}
+import { useAllUserAccounts, useDeleteUserAccount } from "../hooks/useQueries";
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
   superadmin: "bg-destructive/10 text-destructive border-destructive/30",
@@ -79,7 +45,14 @@ export default function SchoolAdminsPage() {
   const [name, setName] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [isGranting, setIsGranting] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+
+  const {
+    data: allAccounts = [],
+    isLoading: accountsLoading,
+    refetch: refetchAccounts,
+  } = useAllUserAccounts();
+
+  const deleteAccountMutation = useDeleteUserAccount();
 
   const myRole = user?.role ?? "unknown";
   const isSuper = myRole === "superadmin";
@@ -112,8 +85,8 @@ export default function SchoolAdminsPage() {
       return;
     }
     setIsGranting(true);
-    setTimeout(() => {
-      const result = registerUser(
+    try {
+      const result = await registerUser(
         username.trim(),
         password.trim(),
         selectedRole,
@@ -127,22 +100,27 @@ export default function SchoolAdminsPage() {
         setPassword("");
         setName("");
         setSelectedRole("");
-        setRefreshKey((k) => k + 1);
+        void refetchAccounts();
       } else {
         toast.error(result.error ?? "Failed to create account");
       }
+    } catch {
+      toast.error("Failed to create account. Please try again.");
+    } finally {
       setIsGranting(false);
-    }, 300);
+    }
   };
 
-  const handleDelete = (uname: string) => {
-    deleteRegisteredUser(uname);
-    toast.success(`User '${uname}' removed`);
-    setRefreshKey((k) => k + 1);
+  const handleDelete = async (uname: string) => {
+    try {
+      await deleteAccountMutation.mutateAsync(uname);
+      toast.success(`User '${uname}' removed`);
+    } catch {
+      toast.error("Failed to remove user");
+    }
   };
 
-  // Re-read users list using refreshKey as dependency
-  const usersList = refreshKey >= 0 ? getRegisteredUsers() : [];
+  const usersList = allAccounts;
 
   return (
     <div className="p-6 max-w-5xl mx-auto animate-fade-in">
@@ -259,7 +237,7 @@ export default function SchoolAdminsPage() {
               </div>
               <Button
                 data-ocid="school_admins.primary_button"
-                onClick={handleCreate}
+                onClick={() => void handleCreate()}
                 disabled={
                   isGranting ||
                   !username.trim() ||
@@ -283,14 +261,30 @@ export default function SchoolAdminsPage() {
 
       {/* Users List */}
       <Card className="shadow-card mt-6">
-        <CardHeader>
-          <CardTitle className="text-base">All Created Accounts</CardTitle>
-          <CardDescription>
-            Accounts created via this panel ({usersList.length} total)
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">All Created Accounts</CardTitle>
+            <CardDescription>
+              Accounts stored in the school database ({usersList.length} total)
+            </CardDescription>
+          </div>
+          <button
+            type="button"
+            onClick={() => void refetchAccounts()}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            title="Refresh"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
         </CardHeader>
         <CardContent>
-          {usersList.length === 0 ? (
+          {accountsLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Loading accounts...
+            </div>
+          ) : usersList.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
               No accounts created yet.
             </p>
@@ -317,7 +311,9 @@ export default function SchoolAdminsPage() {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={`capitalize text-xs ${ROLE_BADGE_COLORS[u.role] ?? ""}`}
+                      className={`capitalize text-xs ${
+                        ROLE_BADGE_COLORS[u.role] ?? ""
+                      }`}
                     >
                       {u.role === "hr"
                         ? "HR Manager"
@@ -328,7 +324,7 @@ export default function SchoolAdminsPage() {
                     <button
                       type="button"
                       data-ocid="school_admins.user.delete_button"
-                      onClick={() => handleDelete(u.username)}
+                      onClick={() => void handleDelete(u.username)}
                       className="p-1.5 rounded hover:bg-red-50 transition-colors text-muted-foreground hover:text-destructive"
                       title="Remove user"
                     >

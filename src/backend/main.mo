@@ -1715,4 +1715,70 @@ actor {
       totalCourses = courses.size();
     };
   };
+
+  // ─── User Accounts (persistent login store) ────────────────────────────────
+  // Stores dynamically registered teacher / school-admin / HR accounts so that
+  // credentials survive across browser sessions, device changes, and redeployments.
+
+  type UserAccount = {
+    username : Text;
+    password : Text;
+    role     : Text;
+    name     : Text;
+  };
+
+  stable var userAccounts = Map.empty<Text, UserAccount>();
+
+  public query func getAllUserAccounts() : async [UserAccount] {
+    userAccounts.values().toArray();
+  };
+
+  public shared func createUserAccount(username : Text, password : Text, role : Text, name : Text) : async Bool {
+    switch (userAccounts.get(username)) {
+      case (?_) { false };
+      case (null) {
+        let account : UserAccount = { username; password; role; name };
+        userAccounts.add(username, account);
+        true;
+      };
+    };
+  };
+
+  public shared func updateUserAccountPassword(username : Text, newPassword : Text) : async Bool {
+    switch (userAccounts.get(username)) {
+      case (null) { false };
+      case (?acct) {
+        userAccounts.add(username, { username; password = newPassword; role = acct.role; name = acct.name });
+        true;
+      };
+    };
+  };
+
+  public shared func deleteUserAccount(username : Text) : async () {
+    userAccounts.remove(username);
+  };
+
+  public query func validateUserAccount(username : Text, password : Text) : async ?UserAccount {
+    switch (userAccounts.get(username)) {
+      case (null) { null };
+      case (?acct) {
+        if (acct.password == password) { ?acct } else { null };
+      };
+    };
+  };
+
+  public shared func importUserAccounts(accounts : [UserAccount]) : async Nat {
+    var imported : Nat = 0;
+    for (acct in accounts.vals()) {
+      switch (userAccounts.get(acct.username)) {
+        case (null) {
+          userAccounts.add(acct.username, acct);
+          imported += 1;
+        };
+        case (?_) {};
+      };
+    };
+    imported;
+  };
+
 };

@@ -480,6 +480,12 @@ export interface backendInterface {
     updateStudent(id: Identifier, firstName: string, lastName: string, grade: Grade, contactEmail: ContactEmail, contactPhone: ContactPhone, parentName: ParentName, enrollmentDate: EnrollmentDate, dob: bigint | null, isActive: IsActive): Promise<Identifier>;
     updateStudentInvoice(id: string, studentId: Identifier, feeStructureId: string, amount: bigint, dueDate: bigint, status: string, issuedDate: bigint): Promise<string>;
     updateTeacher(id: Identifier, firstName: string, lastName: string, subjects: Subjects, contactEmail: ContactEmail, contactPhone: ContactPhone, dateOfJoin: DateOfJoin, grade: string | null, isActive: IsActive): Promise<Identifier>;
+    createUserAccount(username: string, password: string, role: string, name: string): Promise<boolean>;
+    deleteUserAccount(username: string): Promise<void>;
+    getAllUserAccounts(): Promise<Array<{username: string; password: string; role: string; name: string}>>;
+    importUserAccounts(accounts: Array<{username: string; password: string; role: string; name: string}>): Promise<bigint>;
+    updateUserAccountPassword(username: string, newPassword: string): Promise<boolean>;
+    validateUserAccount(username: string, password: string): Promise<{username: string; password: string; role: string; name: string} | null>;
 }
 import type { AssignmentSubmission as _AssignmentSubmission, ContactEmail as _ContactEmail, ContactPhone as _ContactPhone, DateOfJoin as _DateOfJoin, EnrollmentDate as _EnrollmentDate, Grade as _Grade, Identifier as _Identifier, IsActive as _IsActive, ParentName as _ParentName, SalarySlipData as _SalarySlipData, Student as _Student, Subjects as _Subjects, Teacher as _Teacher, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -2183,6 +2189,30 @@ export class Backend implements backendInterface {
             const result = await this.actor.updateTeacher(arg0, arg1, arg2, arg3, arg4, arg5, arg6, to_candid_opt_n4(this._uploadFile, this._downloadFile, arg7), arg8);
             return result;
         }
+    }
+    async createUserAccount(username, password, role, name) {
+        const result = await this.actor.createUserAccount(username, password, role, name);
+        return result;
+    }
+    async deleteUserAccount(username) {
+        return this.actor.deleteUserAccount(username);
+    }
+    async getAllUserAccounts() {
+        const result = await this.actor.getAllUserAccounts();
+        return result;
+    }
+    async importUserAccounts(accounts) {
+        const result = await this.actor.importUserAccounts(accounts);
+        return result;
+    }
+    async updateUserAccountPassword(username, newPassword) {
+        const result = await this.actor.updateUserAccountPassword(username, newPassword);
+        return result;
+    }
+    async validateUserAccount(username, password) {
+        const result = await this.actor.validateUserAccount(username, password);
+        if (result && result.length > 0) return result[0];
+        return null;
     }
 }
 function from_candid_AssignmentSubmission_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _AssignmentSubmission): AssignmentSubmission {

@@ -24,7 +24,7 @@ function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!username.trim() || !password.trim()) {
@@ -32,13 +32,16 @@ function LoginScreen() {
       return;
     }
     setIsLoading(true);
-    setTimeout(() => {
-      const result = login(username.trim(), password);
+    try {
+      const result = await login(username.trim(), password);
       if (!result.success) {
         setError(result.error ?? "Login failed");
-        setIsLoading(false);
       }
-    }, 300);
+    } catch {
+      setError("Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -200,7 +203,12 @@ function LoginScreen() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form
+            onSubmit={(e) => {
+              void handleSubmit(e);
+            }}
+            className="space-y-5"
+          >
             <div className="space-y-1.5">
               <Label
                 htmlFor="username"
