@@ -301,6 +301,9 @@ export default function Sidebar({
 }: SidebarProps) {
   const { user, logout } = useLocalAuth();
   const userRole = user?.role ?? null;
+  const schoolLogo =
+    localStorage.getItem("classio_school_logo") ||
+    "/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg";
 
   const [collapsedSections, setCollapsedSections] = useState<
     Record<string, boolean>
@@ -338,7 +341,7 @@ export default function Sidebar({
       >
         <div className="bg-primary/10 rounded-xl p-1 shrink-0">
           <img
-            src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
+            src={schoolLogo}
             alt="Classio ERP"
             className="w-9 h-9 rounded-lg object-cover"
           />

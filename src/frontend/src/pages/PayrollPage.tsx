@@ -80,7 +80,7 @@ function getTierLabel(years: number): string {
 }
 
 function formatAmt(n: number): string {
-  return `20b9${n.toLocaleString("en-IN")}`;
+  return `₹${n.toLocaleString("en-IN")}`;
 }
 
 interface PayrollBreakdown {
@@ -104,6 +104,9 @@ interface SalarySlipDialogProps {
   designation: string;
 }
 
+const DEFAULT_LOGO =
+  "/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg";
+
 function SalarySlipDialog({
   open,
   onClose,
@@ -112,6 +115,8 @@ function SalarySlipDialog({
   designation,
 }: SalarySlipDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const schoolLogo =
+    localStorage.getItem("classio_school_logo") || DEFAULT_LOGO;
 
   const basic = Number(record.basicSalary);
   const storageKey = `payroll_breakdown_${record.staffId}_${record.month}_${record.year}`;
@@ -216,7 +221,7 @@ function SalarySlipDialog({
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
                 <img
-                  src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
+                  src={schoolLogo}
                   alt="Classio ERP"
                   className="w-9 h-9 object-cover rounded"
                 />
@@ -619,21 +624,22 @@ export default function PayrollPage() {
 
       // Save breakdown to localStorage for salary slip generation
       const storageKey = `payroll_breakdown_${selectedStaffId}_${form.month}_${form.year}`;
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          hra: hraNum,
-          conveyance: conveyanceNum,
-          medical: medicalNum,
-          specialAllowance: specialNum,
-          pf: pfNum,
-          tds: tdsNum,
-          professionalTax: ptNum,
-          absentDays: absentDaysNum,
-          absentDeduction,
-          otherDeductions: otherDedNum,
-        }),
-      );
+      const breakdownData = {
+        hra: hraNum,
+        conveyance: conveyanceNum,
+        medical: medicalNum,
+        specialAllowance: specialNum,
+        pf: pfNum,
+        tds: tdsNum,
+        professionalTax: ptNum,
+        absentDays: absentDaysNum,
+        absentDeduction,
+        otherDeductions: otherDedNum,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(breakdownData));
+      // Also save as latest key so teacher salary slip page can find it
+      const latestKey = `payroll_breakdown_latest_${selectedStaffId}`;
+      localStorage.setItem(latestKey, JSON.stringify(breakdownData));
 
       toast.success("Payroll generated successfully");
     } catch {

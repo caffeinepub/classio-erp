@@ -3,12 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, School, User } from "lucide-react";
-import { useState } from "react";
+import { Copy, ImagePlus, School, User, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "../components/shared";
 import { useLocalAuth } from "../hooks/useLocalAuth";
 import { useSchoolProfile } from "../hooks/useQueries";
+
+const DEFAULT_LOGO =
+  "/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg";
 
 export default function SettingsPage() {
   const { user } = useLocalAuth();
@@ -21,6 +24,37 @@ export default function SettingsPage() {
     email: "",
     motto: "",
   });
+
+  // Logo state — reads from localStorage on first render
+  const [logoPreview, setLogoPreview] = useState<string | null>(() =>
+    localStorage.getItem("classio_school_logo"),
+  );
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const canManageLogo = ["schooladmin", "admin", "superadmin", "hr"].includes(
+    user?.role ?? "",
+  );
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      localStorage.setItem("classio_school_logo", dataUrl);
+      setLogoPreview(dataUrl);
+      toast.success("School logo updated");
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so the same file can be re-selected
+    e.target.value = "";
+  };
+
+  const handleRemoveLogo = () => {
+    localStorage.removeItem("classio_school_logo");
+    setLogoPreview(null);
+    toast.success("Logo removed. Default logo restored.");
+  };
 
   const handleSchoolLoad = () => {
     if (schoolProfile) {
@@ -99,6 +133,81 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* School Logo — only for admin roles */}
+        {canManageLogo && (
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImagePlus className="h-5 w-5 text-primary" /> School Logo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Logo will appear in the sidebar, login page, and salary slips.
+                </p>
+
+                {/* Current Logo Preview */}
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+                    <img
+                      data-ocid="settings.logo.card"
+                      src={logoPreview ?? DEFAULT_LOGO}
+                      alt="School Logo"
+                      className="w-full h-full object-cover rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <p className="text-sm font-medium">
+                      {logoPreview
+                        ? "Custom logo active"
+                        : "Default Classio logo"}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        data-ocid="settings.logo.upload_button"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => logoInputRef.current?.click()}
+                        className="gap-1.5"
+                      >
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        Upload Logo
+                      </Button>
+                      {logoPreview && (
+                        <Button
+                          data-ocid="settings.logo.delete_button"
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveLogo}
+                          className="gap-1.5 text-destructive hover:text-destructive"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Remove Logo
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Accepted formats: PNG, JPG, SVG, WebP (max 2 MB)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Hidden file input */}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* School Profile */}
         <Card className="shadow-card">

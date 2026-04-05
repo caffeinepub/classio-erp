@@ -22,14 +22,21 @@ const MONTHS = [
 ];
 
 function formatAmt(n: number): string {
-  return `20b9${n.toLocaleString("en-IN")}`;
+  return `₹${n.toLocaleString("en-IN")}`;
 }
+
+const DEFAULT_LOGO =
+  "/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg";
 
 export default function SalarySlipPage() {
   const { user } = useLocalAuth();
-  const staffId = user?.username ?? "";
+  // Use the teacher's display name as staffId since payroll records are keyed by staff name
+  const staffId = user?.name ?? user?.username ?? "";
 
   const { data: salaryData, isLoading } = useSalarySlipData(staffId);
+
+  const schoolLogo =
+    localStorage.getItem("classio_school_logo") || DEFAULT_LOGO;
 
   const handlePrint = () => {
     window.print();
@@ -47,8 +54,10 @@ export default function SalarySlipPage() {
   // Try to load stored breakdown from localStorage
   const getBreakdown = () => {
     if (!salaryData) return null;
+    // Try specific month key first, then fall back to latest key
     const key = `payroll_breakdown_${salaryData.staffId}_${salaryData.month}_${salaryData.year}`;
-    const stored = localStorage.getItem(key);
+    const latestKey = `payroll_breakdown_latest_${salaryData.staffId}`;
+    const stored = localStorage.getItem(key) || localStorage.getItem(latestKey);
     if (stored) {
       try {
         return JSON.parse(stored) as {
@@ -130,7 +139,7 @@ export default function SalarySlipPage() {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
                     <img
-                      src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
+                      src={schoolLogo}
                       alt="Classio ERP"
                       className="w-11 h-11 rounded-lg object-cover"
                     />

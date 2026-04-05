@@ -1,25 +1,41 @@
 # Classio ERP
 
 ## Current State
-
-Teachers submit attendance requests via `submitAttendanceCorrection` (no auth required). School Admins should see these in the Attendance > Teacher Requests tab. The approve/reject backend functions require `hasAppRole(caller, "hr")` -- but all users including School Admins use anonymous ICP actors (localStorage-based auth), so the caller principal has no user profile and the role check always fails, preventing approval/rejection. Additionally, the Teacher Requests tab only fetches `getPendingAttendanceCorrections`, so once approved/rejected they disappear from admin view. The display shows only `staffId` (username string) not the teacher's actual name.
+- Salary slip generation broken: `formatAmt` function has mangled Unicode (renders `20b91,000` instead of `₹1,000`) in both PayrollPage and SalarySlipPage
+- Teacher salary slip page always shows "No salary slip" because `user.username` is used as staffId but backend stores payroll by Staff record ID (different format)
+- Salary slip breakdown data stored only in admin's localStorage — teachers on different devices see derived/wrong values
+- Logo is hardcoded static asset across all pages — no dynamic logo upload feature
+- SettingsPage has no logo upload section
+- `getSalarySlipData` in backend returns first indexed record (not most recent)
+- Payroll ID uses staffId+netPay which can collide across months
 
 ## Requested Changes (Diff)
 
 ### Add
-- `getAllAttendanceCorrections()` backend query that returns all corrections regardless of status
-- Hook `useAllAttendanceCorrections` in useQueries.ts
+- School logo upload feature: School Admins can upload their school logo from Settings page; stored in localStorage as base64; used across sidebar, salary slip, login page
+- Logo upload card in SettingsPage (visible to School Admin and Super Admin roles)
 
 ### Modify
-- Remove `hasAppRole` check from `approveAttendanceCorrection` and `rejectAttendanceCorrection` backend functions (entire app uses anonymous actors; auth is handled at the localStorage/UI level)
-- AttendancePage Teacher Requests tab: use `useAllAttendanceCorrections` instead of `usePendingAttendanceCorrections`; resolve `staffId` to teacher full name using the teachers list; show all statuses with color-coded badges
+- Fix `formatAmt` in PayrollPage.tsx: use `₹` character directly, not unicode escape
+- Fix `formatAmt` in SalarySlipPage.tsx: same fix
+- Fix teacher salary slip staffId lookup: instead of using username directly, resolve the matching payroll record by iterating all payroll records and matching by teacher name or store/retrieve by username properly
+- Fix salary slip breakdown storage: save breakdown to backend (via payroll record) OR store in sessionStorage/localStorage keyed by staffId resolved from backend — use `getPayrollRecordsByStaff` with resolved staffId
+- Fix salary slip to show the most recent record (sort by year desc, month desc)
+- Store salary slip breakdown in the payroll record notes/metadata or as part of a well-known localStorage key that uses staffId from the payroll record itself
+- PayrollPage: save breakdown with key using the record's staffId (not username), ensure teachers can retrieve by their linked staffId
+- Backend `getSalarySlipData`: return most recent payroll record (sort by year/month desc)
+- Fix payroll ID generation to include month+year to avoid collisions
+- School logo: when `classio_school_logo` key exists in localStorage, use it as the `src` for all logo `<img>` tags across Sidebar, SalarySlipPage, PayrollPage salary slip dialog, and AuthGate login page
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-
-1. Backend (`main.mo`): Remove `hasAppRole` guard from `approveAttendanceCorrection` and `rejectAttendanceCorrection`; add `getAllAttendanceCorrections` public query
-2. Frontend (`backend.d.ts`): Add `getAllAttendanceCorrections` to the interface
-3. Frontend (`useQueries.ts`): Add `useAllAttendanceCorrections` hook
-4. Frontend (`AttendancePage.tsx`): Switch Teacher Requests tab to use `useAllAttendanceCorrections`; show teacher full name by mapping `staffId` -> teacher from teachers list; show all statuses with badges; keep approve/reject buttons visible only for pending items
+1. Fix `formatAmt` in PayrollPage.tsx and SalarySlipPage.tsx (use literal `₹`)
+2. Fix payroll ID in backend to include month+year
+3. Fix `getSalarySlipData` to return most recent record
+4. Fix SalarySlipPage staffId resolution: call `getPayrollRecordsByStaff` for all staff, find the record where staffId matches teacher's linked staff, or use a new backend function `getSalarySlipByUsername` that accepts the teacher username and resolves via teacher accounts
+5. Fix salary slip breakdown: in PayrollPage when generating, also save breakdown with a key of `payroll_breakdown_${record.staffId}_${record.month}_${record.year}` AND as `payroll_breakdown_latest_${record.staffId}` so teacher can retrieve the latest
+6. Fix SalarySlipPage to use `payroll_breakdown_latest_${staffId}` fallback
+7. Add logo upload card in SettingsPage (visible to schoolAdmin, superAdmin, hr roles)
+8. Update Sidebar, SalarySlipPage, PayrollPage salary slip dialog, AuthGate to read logo from `localStorage.getItem('classio_school_logo')` and fall back to default static asset

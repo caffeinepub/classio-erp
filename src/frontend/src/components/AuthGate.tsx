@@ -15,6 +15,9 @@ import { useLocalAuth } from "../hooks/useLocalAuth";
 
 function LoginScreen() {
   const { login } = useLocalAuth();
+  const schoolLogo =
+    localStorage.getItem("classio_school_logo") ||
+    "/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -96,7 +99,7 @@ function LoginScreen() {
               }}
             />
             <img
-              src="/assets/classio_logo_reel_compressed-019d539f-bf78-7716-bf0d-bb064308b5be.jpeg"
+              src={schoolLogo}
               alt="Classio ERP"
               className="relative w-28 h-28 rounded-2xl object-cover"
               style={{
