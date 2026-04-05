@@ -2,6 +2,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -11,6 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -27,9 +40,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import {
   Building2,
+  Check,
   CheckCircle2,
+  ChevronsUpDown,
   CreditCard,
   IndianRupee,
   Loader2,
@@ -115,7 +131,7 @@ export default function PaymentsPage() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
-  const [studentSearch, setStudentSearch] = useState("");
+  const [studentPopoverOpen, setStudentPopoverOpen] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -135,11 +151,6 @@ export default function PaymentsPage() {
     return g > 0 ? `Grade ${g}` : s.grade?.toString() || "";
   };
 
-  const filteredStudents = (students as any[]).filter((s: any) => {
-    const name = `${s.firstName} ${s.lastName}`.toLowerCase();
-    return studentSearch === "" || name.includes(studentSearch.toLowerCase());
-  });
-
   const studentInvoices = (students as any[]).find(
     (s: any) => s.id === form.studentId,
   )
@@ -150,9 +161,31 @@ export default function PaymentsPage() {
       )
     : [];
 
+  // Balance due calculation helpers
+  const calcTotalFees = (studentId: string) =>
+    (invoices as any[])
+      .filter((i: any) => i.studentId === studentId)
+      .reduce((acc: number, i: any) => acc + Number(i.amount), 0);
+
+  const calcTotalPaid = (studentId: string) =>
+    (payments as any[])
+      .filter((p: any) => p.studentId === studentId)
+      .reduce((acc: number, p: any) => acc + Number(p.amount), 0);
+
+  const calcBalanceDue = (studentId: string) => {
+    const totalFees = calcTotalFees(studentId);
+    const totalPaid = calcTotalPaid(studentId);
+    return Math.max(0, totalFees - totalPaid);
+  };
+
   const handleStudentSelect = (id: string) => {
-    setForm((p) => ({ ...p, studentId: id, invoiceId: "", amount: "" }));
-    setStudentSearch("");
+    const balance = calcBalanceDue(id);
+    setForm((p) => ({
+      ...p,
+      studentId: id,
+      invoiceId: "",
+      amount: balance > 0 ? String(balance) : "",
+    }));
   };
 
   const handleInvoiceSelect = (id: string) => {
@@ -170,7 +203,6 @@ export default function PaymentsPage() {
     const grade = studentGrade(form.studentId);
     const receiptNo = `RCP-${String(Date.now()).slice(-6)}`;
 
-    // Find fee breakdown for the student's grade
     let feesBreakdown: ReceiptData["feesBreakdown"] = null;
     if (s) {
       const gNumber = Number(s.grade);
@@ -246,7 +278,6 @@ export default function PaymentsPage() {
         }
       `}</style>
 
-      {/* Receipt Print Wrapper */}
       {showReceipt && receiptData && (
         <div className="receipt-print-wrapper fixed inset-0 z-50 flex items-center justify-center bg-black/50 no-print-bg">
           <div
@@ -414,46 +445,71 @@ export default function PaymentsPage() {
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
-                  {/* Step 1: Select Student */}
+                  {/* Step 1: Select Student — Combobox */}
                   <div className="space-y-1.5">
                     <Label>Select Student *</Label>
-                    <Select
-                      value={form.studentId}
-                      onValueChange={handleStudentSelect}
+                    <Popover
+                      open={studentPopoverOpen}
+                      onOpenChange={setStudentPopoverOpen}
                     >
-                      <SelectTrigger data-ocid="payments.select">
-                        <SelectValue placeholder="Search and select student" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <div className="px-2 py-1.5">
-                          <Input
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          aria-expanded={studentPopoverOpen}
+                          aria-haspopup="listbox"
+                          className="w-full justify-between font-normal"
+                          data-ocid="payments.select"
+                        >
+                          {form.studentId
+                            ? studentFullName(form.studentId)
+                            : "Search and select student"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-[var(--radix-popover-trigger-width)] p-0"
+                        align="start"
+                      >
+                        <Command>
+                          <CommandInput
                             placeholder="Search student..."
-                            value={studentSearch}
-                            onChange={(e) => setStudentSearch(e.target.value)}
-                            className="h-8 text-sm"
                             data-ocid="payments.search_input"
                           />
-                        </div>
-                        {filteredStudents.length === 0 ? (
-                          <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                            No students found
-                          </div>
-                        ) : (
-                          filteredStudents.map((s: any) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              <span className="font-medium">
-                                {s.firstName} {s.lastName}
-                              </span>
-                              <span className="text-muted-foreground ml-2 text-xs">
-                                {Number(s.grade) > 0
-                                  ? `· Grade ${Number(s.grade)}`
-                                  : ""}
-                              </span>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                          <CommandList>
+                            <CommandEmpty>No students found</CommandEmpty>
+                            <CommandGroup>
+                              {(students as any[]).map((s: any) => (
+                                <CommandItem
+                                  key={s.id}
+                                  value={`${s.firstName} ${s.lastName}`}
+                                  onSelect={() => {
+                                    handleStudentSelect(s.id);
+                                    setStudentPopoverOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      form.studentId === s.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                  <span className="font-medium">
+                                    {s.firstName} {s.lastName}
+                                  </span>
+                                  {Number(s.grade) > 0 && (
+                                    <span className="text-muted-foreground ml-2 text-xs">
+                                      · Grade {Number(s.grade)}
+                                    </span>
+                                  )}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     {form.studentId && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <span className="inline-block w-2 h-2 rounded-full bg-success" />
@@ -461,6 +517,49 @@ export default function PaymentsPage() {
                       </p>
                     )}
                   </div>
+
+                  {/* Balance Due Panel */}
+                  {form.studentId &&
+                    (() => {
+                      const totalFees = calcTotalFees(form.studentId);
+                      const totalPaid = calcTotalPaid(form.studentId);
+                      const balance = Math.max(0, totalFees - totalPaid);
+                      const isCleared = balance === 0;
+                      return (
+                        <div
+                          className={`rounded-lg border p-3 text-sm ${isCleared ? "border-success/30 bg-success/5" : "border-orange-300/40 bg-orange-50/60"}`}
+                        >
+                          <div className="flex items-center justify-between gap-4 flex-wrap">
+                            <div className="flex items-center gap-4">
+                              <span className="text-muted-foreground">
+                                Total Fees:{" "}
+                                <span className="font-semibold text-foreground">
+                                  {formatINR(BigInt(totalFees))}
+                                </span>
+                              </span>
+                              <span className="text-muted-foreground">
+                                Paid:{" "}
+                                <span className="font-semibold text-success">
+                                  {formatINR(BigInt(totalPaid))}
+                                </span>
+                              </span>
+                            </div>
+                            <div className="font-bold">
+                              {isCleared ? (
+                                <span className="text-success flex items-center gap-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> No
+                                  balance due
+                                </span>
+                              ) : (
+                                <span className="text-orange-600">
+                                  Balance Due: {formatINR(BigInt(balance))}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                   {/* Step 2: Select Invoice */}
                   {form.studentId && (
@@ -645,13 +744,14 @@ export default function PaymentsPage() {
                 <TableHead>Method</TableHead>
                 <TableHead>Payment Date</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead>Balance Due</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="text-center py-12"
                     data-ocid="payments.loading_state"
                   >
@@ -661,7 +761,7 @@ export default function PaymentsPage() {
               ) : (payments as any[]).length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="text-center py-12 text-muted-foreground"
                     data-ocid="payments.empty_state"
                   >
@@ -701,6 +801,18 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {payment.notes || "—"}
+                    </TableCell>
+                    <TableCell className="text-sm font-semibold">
+                      {(() => {
+                        const bal = calcBalanceDue(payment.studentId);
+                        return bal > 0 ? (
+                          <span className="text-orange-600">
+                            {formatINR(BigInt(bal))}
+                          </span>
+                        ) : (
+                          <span className="text-success">Cleared</span>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
                 ))
