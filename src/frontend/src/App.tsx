@@ -73,6 +73,7 @@ function MainApp() {
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [pageHistory, setPageHistory] = useState<Page[]>(["dashboard"]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const canGoBack = pageHistory.length > 1;
 
@@ -111,7 +112,6 @@ function MainApp() {
   };
 
   const renderPage = () => {
-    // Route guard for teachers — only allowed pages are accessible
     if (
       user?.role === "teacher" &&
       !TEACHER_ALLOWED_PAGES.includes(activePage)
@@ -181,7 +181,12 @@ function MainApp() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar activePage={activePage} onNavigate={handleNavigate} />
+      <Sidebar
+        activePage={activePage}
+        onNavigate={handleNavigate}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+      />
       <main className="flex-1 overflow-y-auto">
         {canGoBack && (
           <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
