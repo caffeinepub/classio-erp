@@ -153,8 +153,11 @@ function CredRow({
 
 export default function UserManagementPage() {
   const { registerUser } = useLocalAuth();
-  const { data: allTeachers = [], isLoading: teachersLoading } =
-    useAllTeachers();
+  const {
+    data: allTeachers = [],
+    isLoading: teachersLoading,
+    refetch: refetchTeachers,
+  } = useAllTeachers();
 
   const [refreshKey, setRefreshKey] = useState(0);
   const teachers = refreshKey >= 0 ? getTeacherAccounts() : [];
@@ -436,7 +439,18 @@ export default function UserManagementPage() {
               <div className="space-y-4 py-2">
                 {/* Teacher selector */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="select-teacher">Select Teacher *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="select-teacher">Select Teacher *</Label>
+                    <button
+                      type="button"
+                      onClick={() => void refetchTeachers()}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                      title="Refresh teacher list"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Refresh
+                    </button>
+                  </div>
                   {teachersLoading ? (
                     <div
                       data-ocid="teacher_accounts.select.loading_state"
@@ -466,10 +480,22 @@ export default function UserManagementPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {availableTeachers.length === 0 ? (
-                          <div className="py-6 text-center text-sm text-muted-foreground">
-                            {allTeachers.length === 0
-                              ? "No teachers found — add teachers first"
-                              : "All teachers already have logins"}
+                          <div className="py-6 text-center text-sm text-muted-foreground space-y-2">
+                            <p>
+                              {allTeachers.length === 0
+                                ? "No teachers found — add teachers first"
+                                : "All teachers already have logins"}
+                            </p>
+                            {allTeachers.length === 0 && (
+                              <button
+                                type="button"
+                                onClick={() => void refetchTeachers()}
+                                className="flex items-center gap-1 mx-auto text-xs text-primary hover:underline"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                                Retry
+                              </button>
+                            )}
                           </div>
                         ) : (
                           availableTeachers.map((t: Teacher) => (

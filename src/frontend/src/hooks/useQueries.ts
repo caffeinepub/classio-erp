@@ -211,14 +211,16 @@ export function useDeleteStudent() {
 
 // ── Teachers ───────────────────────────────────────────────────────────────
 export function useAllTeachers() {
-  const { actor, isFetching } = useActor();
+  const { actor } = useActor();
   return useQuery<Teacher[]>({
     queryKey: ["teachers"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getAllTeachers();
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!actor,
+    staleTime: 0,
+    retry: 3,
   });
 }
 
