@@ -23,20 +23,26 @@ actor {
     linkedId : ?Text;
   };
 
-  stable var userProfiles = Map.empty<Principal, UserProfile>();
+  let userProfiles = Map.empty<Principal, UserProfile>();
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view profiles");
+    };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    // Auth handled at UI layer
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own profile");
+    };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
+    };
     userProfiles.add(caller, profile);
   };
 
@@ -102,7 +108,7 @@ actor {
     dob : ?Int;
     isActive : Student.IsActive;
   };
-  stable var students = Map.empty<Text, Student>();
+  let students = Map.empty<Text, Student>();
 
   public shared ({ caller }) func createStudent(
     firstName : Text,
@@ -115,7 +121,9 @@ actor {
     dob : ?Int,
     isActive : Student.IsActive,
   ) : async Student.Identifier {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add or update students");
+    };
     let newStudent : Student = {
       id = firstName # lastName;
       firstName;
@@ -144,7 +152,9 @@ actor {
     dob : ?Int,
     isActive : Student.IsActive,
   ) : async Student.Identifier {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add or update students");
+    };
     let studentToUpdate = getElem(students, id);
     let updatedStudent = {
       id;
@@ -163,32 +173,57 @@ actor {
   };
 
   public query ({ caller }) func getStudent(id : Student.Identifier) : async Student {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view student records");
+    };
+    // Students can only view their own record
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.role == "student" and profile.linkedId != ?id and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Students can only view their own record");
+        };
+      };
+      case (null) {
+        if (not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     getElem(students, id);
   };
 
   public query ({ caller }) func getAllStudents() : async [Student] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view all students");
+    };
     students.values().toArray().sort();
   };
 
   public query ({ caller }) func getActiveStudents() : async [Student] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view students");
+    };
     students.values().toArray().filter(func(s) { s.isActive });
   };
 
   public query ({ caller }) func getStudentsSortedByFirstName() : async [Student] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view students");
+    };
     students.values().toArray().sort(Student.compareByFirstName);
   };
 
   public query ({ caller }) func getStudentsSortedByLastName() : async [Student] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view students");
+    };
     students.values().toArray().sort(Student.compareByLastName);
   };
 
   public shared ({ caller }) func deleteStudent(id : Student.Identifier) : async () {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete students");
+    };
     students.remove(id);
   };
 
@@ -212,7 +247,7 @@ actor {
     grade : ?Text;
     isActive : Teacher.IsActive;
   };
-  stable var teachers = Map.empty<Text, Teacher>();
+  let teachers = Map.empty<Text, Teacher>();
 
   public shared ({ caller }) func createTeacher(
     firstName : Text,
@@ -224,7 +259,9 @@ actor {
     grade : ?Text,
     isActive : Teacher.IsActive,
   ) : async Teacher.Identifier {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add or update teachers");
+    };
     let newTeacher : Teacher = {
       id = firstName # lastName;
       firstName;
@@ -251,7 +288,9 @@ actor {
     grade : ?Text,
     isActive : Teacher.IsActive,
   ) : async Teacher.Identifier {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add or update students");
+    };
     let teacherToUpdate = getElem(teachers, id);
     let updatedTeacher = {
       id;
@@ -269,22 +308,30 @@ actor {
   };
 
   public query ({ caller }) func getTeacher(id : Teacher.Identifier) : async Teacher {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view teacher records");
+    };
     getElem(teachers, id);
   };
 
   public query ({ caller }) func getAllTeachers() : async [Teacher] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view teachers");
+    };
     teachers.values().toArray();
   };
 
   public query ({ caller }) func getActiveTeachers() : async [Teacher] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view teachers");
+    };
     teachers.values().toArray().filter(func(t) { t.isActive });
   };
 
   public shared ({ caller }) func deleteTeacher(id : Teacher.Identifier) : async () {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete teachers");
+    };
     teachers.remove(id);
   };
 
@@ -299,10 +346,12 @@ actor {
     teacherId : Teacher.Identifier;
     subjects : Class.Subjects;
   };
-  stable var classes = Map.empty<Text, Class>();
+  let classes = Map.empty<Text, Class>();
 
   public shared ({ caller }) func createClass(name : Class.Name, teacherId : Teacher.Identifier, subjects : Class.Subjects) : async Class.Identifier {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add or update classes");
+    };
     let newClass : Class = {
       id = name;
       name;
@@ -314,7 +363,9 @@ actor {
   };
 
   public shared ({ caller }) func updateClass(id : Class.Identifier, name : Class.Name, teacherId : Teacher.Identifier, subjects : Class.Subjects) : async Class.Identifier {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add or update classes");
+    };
     let classToUpdate = getElem(classes, id);
     let updatedClass = {
       id;
@@ -327,56 +378,61 @@ actor {
   };
 
   public query ({ caller }) func getClass(id : Class.Identifier) : async Class {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view classes");
+    };
     getElem(classes, id);
   };
 
   public query ({ caller }) func getAllClasses() : async [Class] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view classes");
+    };
     classes.values().toArray();
   };
 
   public shared ({ caller }) func deleteClass(id : Class.Identifier) : async () {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete classes");
+    };
     classes.remove(id);
   };
 
-  // classEnrollments (legacy mutable-field version, kept for upgrade compatibility)
-  type ClassEnrollmentLegacy = {
+  type ClassEnrollment = {
     var students : [Student.Identifier];
   };
-  stable var classEnrollments = Map.empty<Class.Identifier, ClassEnrollmentLegacy>();
+  let classEnrollments = Map.empty<Class.Identifier, ClassEnrollment>();
 
-  // classEnrollmentsV2: new stable version with immutable field
-  stable var classEnrollmentsV2 = Map.empty<Class.Identifier, [Student.Identifier]>();
-
-  public shared func enrollStudentInClass(classId : Class.Identifier, studentId : ?Student.Identifier) : async () {
-    // Auth handled at UI layer
-    let existing = switch (classEnrollmentsV2.get(classId)) {
-      case (null) { [] };
-      case (?arr) { arr };
+  public shared ({ caller }) func enrollStudentInClass(classId : Class.Identifier, studentId : ?Student.Identifier) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can enroll students in classes");
     };
+    let currentEnrollment = { var students = [] };
     let alreadyEnrolled = switch (studentId) {
       case (null) { false };
-      case (?id) { existing.any(func(s : Text) : Bool { s == id }) };
+      case (?id) { currentEnrollment.students.any(func(s) { s == id }) };
     };
     if (not alreadyEnrolled) {
-      let newStudents = switch (studentId) {
-        case (null) { existing };
-        case (?id) { existing.concat([id]) };
+      let newEnrollment = {
+        var students = switch (studentId) {
+          case (null) { currentEnrollment.students };
+          case (?id) { currentEnrollment.students.concat([id]) };
+        };
       };
-      classEnrollmentsV2.add(classId, newStudents);
+      classEnrollments.add(classId, newEnrollment);
     };
   };
 
-  public shared func removeStudentFromClass(classId : Class.Identifier, studentId : Student.Identifier) : async () {
-    // Auth handled at UI layer
-    let existing = switch (classEnrollmentsV2.get(classId)) {
-      case (null) { [] };
-      case (?arr) { arr };
+  public shared ({ caller }) func removeStudentFromClass(classId : Class.Identifier, studentId : Student.Identifier) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can remove students from classes");
     };
-    let filtered = existing.filter(func(s : Text) : Bool { s != studentId });
-    classEnrollmentsV2.add(classId, filtered);
+    classEnrollments.add(
+      classId,
+      {
+        var students = [studentId];
+      },
+    );
   };
 
   type AttendanceRecord = {
@@ -391,10 +447,12 @@ actor {
     presentStudents : [Student.Identifier];
     absentStudents : [Student.Identifier];
   };
-  stable var attendanceRecords = Map.empty<Text, AttendanceRecord>();
+  let attendanceRecords = Map.empty<Text, AttendanceRecord>();
 
   public shared ({ caller }) func recordAttendance(attendanceInput : AttendanceRecordInput) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can record attendance");
+    };
     let newAttendance = {
       attendanceInput with
       classId = attendanceInput.classId;
@@ -404,14 +462,18 @@ actor {
   };
 
   public query ({ caller }) func getAttendance(classId : Text) : async [AttendanceRecord] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view attendance");
+    };
     attendanceRecords.values().toArray().filter(func(record) {
       record.classId == classId
     });
   };
 
   public query ({ caller }) func getAttendanceByClassAndDate(classId : Class.Identifier, date : Int) : async [AttendanceRecord] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view attendance");
+    };
     attendanceRecords.values().toArray().filter(func(record) {
       record.classId == classId and record.date == date
     });
@@ -427,7 +489,7 @@ actor {
     status : Text;
     notes : Text;
   };
-  stable var teacherAttendanceRecords = Map.empty<Text, TeacherAttendance>();
+  let teacherAttendanceRecords = Map.empty<Text, TeacherAttendance>();
 
   public shared ({ caller }) func addTeacherAttendance(
     teacherId : Text,
@@ -435,7 +497,9 @@ actor {
     status : Text,
     notes : Text,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can add teacher attendance");
+    };
     let id = teacherId # date.toText();
     let newRecord : TeacherAttendance = {
       id;
@@ -449,14 +513,31 @@ actor {
   };
 
   public query ({ caller }) func getTeacherAttendanceByDate(date : Int) : async [TeacherAttendance] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view teacher attendance");
+    };
     teacherAttendanceRecords.values().toArray().filter(func(record) {
       record.date == date
     });
   };
 
   public query ({ caller }) func getTeacherAttendanceByTeacher(teacherId : Text) : async [TeacherAttendance] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view teacher attendance");
+    };
+    // Teachers can only view their own attendance
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.role == "teacher" and profile.linkedId != ?teacherId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Teachers can only view their own attendance");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     teacherAttendanceRecords.values().toArray().filter(func(record) {
       record.teacherId == teacherId
     });
@@ -475,10 +556,12 @@ actor {
     score : GradeRecord.Score;
     remarks : GradeRecord.Remarks;
   };
-  stable var gradeRecords = Map.empty<Text, GradeRecord>();
+  let gradeRecords = Map.empty<Text, GradeRecord>();
 
   public shared ({ caller }) func recordGrade(studentId : Student.Identifier, subject : GradeRecord.Subject, term : GradeRecord.Term, score : GradeRecord.Score, remarks : GradeRecord.Remarks) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can record grades");
+    };
     let gradeId = studentId # subject;
     let newGrade : GradeRecord = {
       studentId;
@@ -492,24 +575,52 @@ actor {
   };
 
   public query ({ caller }) func getGrade(gradeId : Text) : async GradeRecord {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view grades");
+    };
     switch (gradeRecords.get(gradeId)) {
       case (null) { Runtime.trap("Grade record not found") };
       case (?grade) {
+        // Students can only view their own grades
+        switch (userProfiles.get(caller)) {
+          case (?profile) {
+            if (profile.role == "student" and profile.linkedId != ?grade.studentId and not AccessControl.isAdmin(accessControlState, caller)) {
+              Runtime.trap("Unauthorized: Students can only view their own grades");
+            };
+          };
+          case (null) {};
+        };
         grade
       };
     };
   };
 
   public query ({ caller }) func getGradesByStudent(studentId : Student.Identifier) : async [GradeRecord] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view grades");
+    };
+    // Students can only view their own grades
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.role == "student" and profile.linkedId != ?studentId and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Students can only view their own grades");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "teacher")) {
+          Runtime.trap("Unauthorized: Only teachers and above can view all grades");
+        };
+      };
+    };
     gradeRecords.values().toArray().filter(func(record) {
       record.studentId == studentId
     });
   };
 
   public query ({ caller }) func getGradesBySubject(subject : GradeRecord.Subject) : async [GradeRecord] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view grades by subject");
+    };
     gradeRecords.values().toArray().filter(func(record) {
       record.subject == subject
     });
@@ -528,10 +639,12 @@ actor {
     authorName : Announcement.AuthorName;
     timestamp : Announcement.Timestamp;
   };
-  stable var announcements = Map.empty<Text, Announcement>();
+  let announcements = Map.empty<Text, Announcement>();
 
   public shared ({ caller }) func createAnnouncement(title : Announcement.Title, body : Announcement.Body, authorName : Announcement.AuthorName) : async Text {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can create announcements");
+    };
     let newAnnouncement : Announcement = {
       id = title;
       title;
@@ -544,12 +657,16 @@ actor {
   };
 
   public query ({ caller }) func getAnnouncement(id : Text) : async Announcement {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view announcements");
+    };
     getElem(announcements, id);
   };
 
   public query ({ caller }) func getAllAnnouncements() : async [Announcement] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view announcements");
+    };
     announcements.values().toArray();
   };
 
@@ -577,10 +694,12 @@ actor {
     name : Text;
     description : Text;
   };
-  stable var departments = Map.empty<Text, Department>();
+  let departments = Map.empty<Text, Department>();
 
   public shared ({ caller }) func addOrUpdateDepartment(id : Text, name : Text, description : Text) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can add or update departments");
+    };
     let departmentId = name;
     let newDepartment : Department = {
       id = departmentId;
@@ -592,17 +711,23 @@ actor {
   };
 
   public query ({ caller }) func getDepartment(id : Text) : async Department {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view departments");
+    };
     getElem(departments, id);
   };
 
   public query ({ caller }) func getAllDepartments() : async [Department] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view departments");
+    };
     departments.values().toArray();
   };
 
   public shared ({ caller }) func deleteDepartment(id : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can delete departments");
+    };
     departments.remove(id);
   };
 
@@ -630,7 +755,7 @@ actor {
     hireDate : Staff.HireDate;
     isActive : Staff.IsActive;
   };
-  stable var staffMembers = Map.empty<Text, Staff>();
+  let staffMembers = Map.empty<Text, Staff>();
 
   public shared ({ caller }) func createStaff(
     firstName : Text,
@@ -644,7 +769,9 @@ actor {
     hireDate : Staff.HireDate,
     isActive : Staff.IsActive,
   ) : async Staff.Identifier {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can add or update staff");
+    };
     let newStaff : Staff = {
       id = firstName # lastName;
       firstName;
@@ -675,7 +802,9 @@ actor {
     hireDate : Staff.HireDate,
     isActive : Staff.IsActive,
   ) : async Staff.Identifier {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can add or update staff");
+    };
     let staffToUpdate = getElem(staffMembers, id);
     let updatedStaff = {
       id;
@@ -695,22 +824,30 @@ actor {
   };
 
   public query ({ caller }) func getStaff(id : Staff.Identifier) : async Staff {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view staff records");
+    };
     getElem(staffMembers, id);
   };
 
   public query ({ caller }) func getAllStaff() : async [Staff] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view staff records");
+    };
     staffMembers.values().toArray();
   };
 
   public query ({ caller }) func getActiveStaff() : async [Staff] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can view staff records");
+    };
     staffMembers.values().toArray().filter(func(s) { s.isActive });
   };
 
   public shared ({ caller }) func deleteStaff(id : Staff.Identifier) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can delete staff members");
+    };
     staffMembers.remove(id);
   };
 
@@ -732,7 +869,7 @@ actor {
     reason : LeaveRequest.Reason;
     status : LeaveRequest.Status;
   };
-  stable var leaveRequests = Map.empty<Text, LeaveRequest>();
+  let leaveRequests = Map.empty<Text, LeaveRequest>();
 
   public shared ({ caller }) func submitLeaveRequest(staffId : LeaveRequest.StaffId, leaveType : LeaveRequest.LeaveType, startDate : LeaveRequest.StartDate, endDate : LeaveRequest.EndDate, reason : LeaveRequest.Reason) : async LeaveRequest.Identifier {
     // Allow teacher accounts (localStorage-based auth) to submit their own leave requests
@@ -751,7 +888,9 @@ actor {
   };
 
   public shared ({ caller }) func approveLeaveRequest(leaveRequestId : LeaveRequest.Identifier) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can approve leave requests");
+    };
     let leaveRequest = getElem(leaveRequests, leaveRequestId);
     let updatedRequest : LeaveRequest = {
       id = leaveRequest.id;
@@ -766,7 +905,9 @@ actor {
   };
 
   public shared ({ caller }) func rejectLeaveRequest(leaveRequestId : LeaveRequest.Identifier) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can reject leave requests");
+    };
     let leaveRequest = getElem(leaveRequests, leaveRequestId);
     let updatedRequest : LeaveRequest = {
       id = leaveRequest.id;
@@ -780,21 +921,66 @@ actor {
     leaveRequests.add(leaveRequestId, updatedRequest);
   };
 
-  public query func getLeaveRequest(id : LeaveRequest.Identifier) : async LeaveRequest {
-    // Auth handled at UI layer
+  public query ({ caller }) func getLeaveRequest(id : LeaveRequest.Identifier) : async LeaveRequest {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view leave requests");
+    };
     let leaveRequest = getElem(leaveRequests, id);
+    // Staff can only view their own requests
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?leaveRequest.staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own leave requests");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     leaveRequest;
   };
 
   public query ({ caller }) func getLeaveRequestsByStaff(staffId : Text) : async [LeaveRequest] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view leave requests");
+    };
+    // Staff can only view their own requests
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own leave requests");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     leaveRequests.values().toArray().filter(func(request) {
       request.staffId == staffId
     });
   };
 
   public query ({ caller }) func getLeaveRequestsByStaffId(staffId : Text) : async [LeaveRequest] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view leave requests");
+    };
+    // Staff can only view their own requests
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own leave requests");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     leaveRequests.values().toArray().filter(func(request) {
       request.staffId == staffId
     });
@@ -807,16 +993,6 @@ actor {
     });
   };
 
-  type Expense = {
-    id : Text;
-    category : Text;
-    description : Text;
-    amount : Nat;
-    date : Int;
-    approvedBy : Text;
-  };
-  stable var expenses = Map.empty<Text, Expense>();
-
   type PayrollRecord = {
     id : Text;
     staffId : Text;
@@ -828,10 +1004,12 @@ actor {
     netPay : Nat;
     isPaid : Bool;
   };
-  stable var payrollRecords = Map.empty<Text, PayrollRecord>();
+  let payrollRecords = Map.empty<Text, PayrollRecord>();
 
   public shared ({ caller }) func generatePayroll(staffId : Text, month : Nat, year : Nat, basicSalary : Nat, allowances : Nat, deductions : Nat, netPay : Nat) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can generate payroll records");
+    };
     let payrollId = staffId # netPay.toText();
     let newPayroll : PayrollRecord = {
       id = payrollId;
@@ -849,7 +1027,9 @@ actor {
   };
 
   public shared ({ caller }) func markPayrollAsPaid(payrollId : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only HR and above can mark payroll as paid");
+    };
     let payroll = getElem(payrollRecords, payrollId);
     let updatedPayroll : PayrollRecord = {
       id = payroll.id;
@@ -863,36 +1043,49 @@ actor {
       isPaid = true;
     };
     payrollRecords.add(payrollId, updatedPayroll);
-    // Auto-create expense entry when salary is marked paid
-    let now = Time.now();
-    let expenseDesc = "Salary - " # payroll.staffId # " - " # payroll.month.toText() # "/" # payroll.year.toText();
-    let expenseId = "salary_" # payrollId # "_" # now.toText();
-    let salaryExpense : Expense = {
-      id = expenseId;
-      category = "Salaries";
-      description = expenseDesc;
-      amount = payroll.netPay;
-      date = now;
-      approvedBy = "Payroll System";
-    };
-    expenses.add(expenseId, salaryExpense);
   };
 
-  public query func getPayrollRecord(id : Text) : async PayrollRecord {
-    // Auth handled at UI layer
-    getElem(payrollRecords, id);
+  public query ({ caller }) func getPayrollRecord(id : Text) : async PayrollRecord {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view payroll records");
+    };
+    let payroll = getElem(payrollRecords, id);
+    // Staff can only view their own payroll
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?payroll.staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own payroll records");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
+    payroll;
   };
 
   public query ({ caller }) func getPayrollRecordsByStaff(staffId : Text) : async [PayrollRecord] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view payroll records");
+    };
+    // Staff can only view their own payroll
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own payroll records");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     payrollRecords.values().toArray().filter(func(record) {
       record.staffId == staffId
     });
-  };
-
-  public query func getAllPayrollRecords() : async [PayrollRecord] {
-    // Auth handled at UI layer
-    payrollRecords.values().toArray();
   };
 
   // ============================================
@@ -909,7 +1102,22 @@ actor {
   };
 
   public query ({ caller }) func getSalarySlipData(staffId : Text) : async ?SalarySlipData {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view salary slip data");
+    };
+    // Staff can only view their own salary slip
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.linkedId != ?staffId and not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Can only view your own salary slip");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "hr")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     
     // Get the most recent payroll record for this staff member
     let staffPayrolls = payrollRecords.values().toArray().filter(func(record) {
@@ -944,7 +1152,7 @@ actor {
     reason : Text;
     status : Text;
   };
-  stable var attendanceCorrections = Map.empty<Text, AttendanceCorrection>();
+  let attendanceCorrections = Map.empty<Text, AttendanceCorrection>();
 
   public shared ({ caller }) func submitAttendanceCorrection(
     staffId : Text,
@@ -1015,10 +1223,12 @@ actor {
     subject : Text;
     isActive : Bool;
   };
-  stable var courses = Map.empty<Text, Course>();
+  let courses = Map.empty<Text, Course>();
 
   public shared ({ caller }) func addOrUpdateCourse(title : Text, description : Text, teacherId : Text, classId : Text, subject : Text, isActive : Bool) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can add or update courses");
+    };
     let courseId = title;
     let newCourse : Course = {
       id = courseId;
@@ -1034,22 +1244,30 @@ actor {
   };
 
   public query ({ caller }) func getCourse(id : Text) : async Course {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view courses");
+    };
     getElem(courses, id);
   };
 
   public query ({ caller }) func getAllCourses() : async [Course] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view courses");
+    };
     courses.values().toArray();
   };
 
   public query ({ caller }) func getActiveLMSCourses() : async [Course] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view courses");
+    };
     courses.values().toArray().filter(func(c) { c.isActive });
   };
 
   public shared ({ caller }) func deleteCourse(id : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can delete courses");
+    };
     courses.remove(id);
   };
 
@@ -1067,10 +1285,12 @@ actor {
     contentText : Lesson.ContentText;
     orderIndex : Lesson.OrderIndex;
   };
-  stable var lessons = Map.empty<Text, Lesson>();
+  let lessons = Map.empty<Text, Lesson>();
 
   public shared ({ caller }) func addOrUpdateLesson(courseId : Lesson.CourseId, title : Lesson.Title, contentText : Lesson.ContentText, orderIndex : Lesson.OrderIndex) : async Lesson.Identifier {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can add or update lessons");
+    };
     let lessonId = courseId # orderIndex.toText();
     let newLesson : Lesson = {
       id = lessonId;
@@ -1084,12 +1304,16 @@ actor {
   };
 
   public query ({ caller }) func getLesson(id : Lesson.Identifier) : async Lesson {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view lessons");
+    };
     getElem(lessons, id);
   };
 
   public query ({ caller }) func getLessonsByCourse(courseId : Lesson.CourseId) : async [Lesson] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view lessons");
+    };
     lessons.values().toArray().filter(func(lesson) {
       lesson.courseId == courseId
     });
@@ -1111,10 +1335,12 @@ actor {
     dueDate : Assignment.DueDate;
     maxScore : Assignment.MaxScore;
   };
-  stable var assignments = Map.empty<Text, Assignment>();
+  let assignments = Map.empty<Text, Assignment>();
 
   public shared ({ caller }) func addOrUpdateAssignment(courseId : Assignment.CourseId, title : Assignment.Title, instructions : Assignment.Instructions, dueDate : Assignment.DueDate, maxScore : Assignment.MaxScore) : async Assignment.Identifier {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can add or update assignments");
+    };
     let assignmentId = courseId # title;
     let newAssignment : Assignment = {
       id = assignmentId;
@@ -1129,12 +1355,16 @@ actor {
   };
 
   public query ({ caller }) func getAssignment(id : Assignment.Identifier) : async Assignment {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view assignments");
+    };
     getElem(assignments, id);
   };
 
   public query ({ caller }) func getAssignmentsByCourse(courseId : Assignment.CourseId) : async [Assignment] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view assignments");
+    };
     assignments.values().toArray().filter(func(assignment) {
       assignment.courseId == courseId
     });
@@ -1150,10 +1380,25 @@ actor {
     feedback : ?Text;
     isGraded : Bool;
   };
-  stable var assignmentSubmissions = Map.empty<Text, AssignmentSubmission>();
+  let assignmentSubmissions = Map.empty<Text, AssignmentSubmission>();
 
   public shared ({ caller }) func submitAssignment(assignmentId : Assignment.Identifier, studentId : Student.Identifier, submissionText : Text) : async Text {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can submit assignments");
+    };
+    // Students can only submit their own assignments
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.role == "student" and profile.linkedId != ?studentId and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Can only submit your own assignments");
+        };
+      };
+      case (null) {
+        if (not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     let submissionId = assignmentId # studentId;
     let newSubmission : AssignmentSubmission = {
       id = submissionId;
@@ -1170,7 +1415,9 @@ actor {
   };
 
   public shared ({ caller }) func gradeSubmission(submissionId : Text, score : Nat, feedback : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can grade submissions");
+    };
     let submission = getElem(assignmentSubmissions, submissionId);
     let updatedSubmission : AssignmentSubmission = {
       id = submission.id;
@@ -1185,20 +1432,53 @@ actor {
     assignmentSubmissions.add(submissionId, updatedSubmission);
   };
 
-  public query func getSubmission(id : Text) : async AssignmentSubmission {
-    // Auth handled at UI layer
-    getElem(assignmentSubmissions, id);
+  public query ({ caller }) func getSubmission(id : Text) : async AssignmentSubmission {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view submissions");
+    };
+    let submission = getElem(assignmentSubmissions, id);
+    // Students can only view their own submissions
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.role == "student" and profile.linkedId != ?submission.studentId and not hasAppRole(caller, "teacher")) {
+          Runtime.trap("Unauthorized: Can only view your own submissions");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "teacher")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
+    submission;
   };
 
   public query ({ caller }) func getSubmissionsByAssignment(assignmentId : Assignment.Identifier) : async [AssignmentSubmission] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view all submissions");
+    };
     assignmentSubmissions.values().toArray().filter(func(submission) {
       submission.assignmentId == assignmentId
     });
   };
 
   public query ({ caller }) func getSubmissionsByStudent(studentId : Student.Identifier) : async [AssignmentSubmission] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view submissions");
+    };
+    // Students can only view their own submissions
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        if (profile.role == "student" and profile.linkedId != ?studentId and not hasAppRole(caller, "teacher")) {
+          Runtime.trap("Unauthorized: Can only view your own submissions");
+        };
+      };
+      case (null) {
+        if (not hasAppRole(caller, "teacher")) {
+          Runtime.trap("Unauthorized: Profile required");
+        };
+      };
+    };
     assignmentSubmissions.values().toArray().filter(func(submission) {
       submission.studentId == studentId
     });
@@ -1211,10 +1491,12 @@ actor {
     url : Text;
     resourceType : Text;
   };
-  stable var resourceLinks = Map.empty<Text, ResourceLink>();
+  let resourceLinks = Map.empty<Text, ResourceLink>();
 
   public shared ({ caller }) func addResourceLink(courseId : Text, title : Text, url : Text, resourceType : Text) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can add resource links");
+    };
     let resourceLinkId = courseId # title;
     let newResourceLink = {
       id = resourceLinkId;
@@ -1228,14 +1510,18 @@ actor {
   };
 
   public query ({ caller }) func getResourceLinksByCourse(courseId : Text) : async [ResourceLink] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view resource links");
+    };
     resourceLinks.values().toArray().filter(func(link) {
       link.courseId == courseId
     });
   };
 
   public query ({ caller }) func getAllResourceLinks() : async [ResourceLink] {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "teacher")) {
+      Runtime.trap("Unauthorized: Only teachers and above can view all resource links");
+    };
     resourceLinks.values().toArray();
   };
 
@@ -1260,7 +1546,7 @@ actor {
     status : Text;
     notes : Admission.Notes;
   };
-  stable var applicants = Map.empty<Text, Applicant>();
+  let applicants = Map.empty<Text, Applicant>();
 
   public shared ({ caller }) func createApplicant(
     firstName : Text,
@@ -1273,7 +1559,9 @@ actor {
     status : Text,
     notes : Admission.Notes,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can create applicants");
+    };
     let newApplicant : Applicant = {
       id = firstName # lastName # dateApplied.toText();
       firstName;
@@ -1302,7 +1590,9 @@ actor {
     status : Text,
     notes : Admission.Notes,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update applicants");
+    };
     let updatedApplicant = {
       id;
       firstName;
@@ -1320,22 +1610,30 @@ actor {
   };
 
   public query ({ caller }) func getApplicant(id : Text) : async Applicant {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view applicants");
+    };
     getElem(applicants, id);
   };
 
   public query ({ caller }) func getAllApplicants() : async [Applicant] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view applicants");
+    };
     applicants.values().toArray();
   };
 
   public query ({ caller }) func getApplicantsByStatus(status : Text) : async [Applicant] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view applicants");
+    };
     applicants.values().toArray().filter(func(a) { a.status == status });
   };
 
   public shared ({ caller }) func updateApplicantStatus(id : Text, status : Text) : async () {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update applicant status");
+    };
     let applicant = getElem(applicants, id);
     let updatedApplicant = {
       applicant with status = status;
@@ -1344,12 +1642,16 @@ actor {
   };
 
   public shared ({ caller }) func deleteApplicant(id : Text) : async () {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete applicants");
+    };
     applicants.remove(id);
   };
 
   public shared ({ caller }) func convertApplicantToStudent(applicantId : Text) : async Student.Identifier {
-    // Auth handled at UI layer
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can convert applicants to students");
+    };
 
     switch (applicants.get(applicantId)) {
       case (null) { Runtime.trap("Applicant not found") };
@@ -1402,7 +1704,7 @@ actor {
     feeTypeLabel : Text;
     isActive : Finance.IsActive;
   };
-  stable var feeStructures = Map.empty<Text, FeeStructure>();
+  let feeStructures = Map.empty<Text, FeeStructure>();
 
   public shared ({ caller }) func createFeeStructure(
     name : Text,
@@ -1414,7 +1716,9 @@ actor {
     feeTypeLabel : Text,
     isActive : Finance.IsActive,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create fee structures");
+    };
     let newFeeStructure : FeeStructure = {
       id = name # gradeLevel # academicYear;
       name;
@@ -1441,7 +1745,9 @@ actor {
     feeTypeLabel : Text,
     isActive : Finance.IsActive,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update fee structures");
+    };
     let updatedFeeStructure : FeeStructure = {
       id;
       name;
@@ -1458,17 +1764,23 @@ actor {
   };
 
   public query ({ caller }) func getFeeStructure(id : Text) : async FeeStructure {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view fee structures");
+    };
     getElem(feeStructures, id);
   };
 
   public query ({ caller }) func getAllFeeStructures() : async [FeeStructure] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view fee structures");
+    };
     feeStructures.values().toArray();
   };
 
   public shared ({ caller }) func deleteFeeStructure(id : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete fee structures");
+    };
     feeStructures.remove(id);
   };
 
@@ -1481,7 +1793,7 @@ actor {
     status : Text;
     issuedDate : Int;
   };
-  stable var studentInvoices = Map.empty<Text, StudentInvoice>();
+  let studentInvoices = Map.empty<Text, StudentInvoice>();
 
   public shared ({ caller }) func createStudentInvoice(
     studentId : Student.Identifier,
@@ -1491,7 +1803,9 @@ actor {
     status : Text,
     issuedDate : Int,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create student invoices");
+    };
     let newInvoice : StudentInvoice = {
       id = studentId # feeStructureId # issuedDate.toText();
       studentId;
@@ -1514,7 +1828,9 @@ actor {
     status : Text,
     issuedDate : Int,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update student invoices");
+    };
     let updatedInvoice : StudentInvoice = {
       id;
       studentId;
@@ -1529,17 +1845,23 @@ actor {
   };
 
   public query ({ caller }) func getStudentInvoice(id : Text) : async StudentInvoice {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view invoices");
+    };
     getElem(studentInvoices, id);
   };
 
   public query ({ caller }) func getAllStudentInvoices() : async [StudentInvoice] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view invoices");
+    };
     studentInvoices.values().toArray();
   };
 
   public shared ({ caller }) func deleteStudentInvoice(id : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete student invoices");
+    };
     studentInvoices.remove(id);
   };
 
@@ -1552,7 +1874,7 @@ actor {
     method : Text;
     notes : Text;
   };
-  stable var payments = Map.empty<Text, Payment>();
+  let payments = Map.empty<Text, Payment>();
 
   public shared ({ caller }) func createPayment(
     invoiceId : Text,
@@ -1562,7 +1884,9 @@ actor {
     method : Text,
     notes : Text,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create payments");
+    };
     let newPayment : Payment = {
       id = invoiceId # studentId # paymentDate.toText();
       invoiceId;
@@ -1585,7 +1909,9 @@ actor {
     method : Text,
     notes : Text,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update payments");
+    };
     let updatedPayment : Payment = {
       id;
       invoiceId;
@@ -1600,19 +1926,35 @@ actor {
   };
 
   public query ({ caller }) func getPayment(id : Text) : async Payment {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view payments");
+    };
     getElem(payments, id);
   };
 
   public query ({ caller }) func getAllPayments() : async [Payment] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view payments");
+    };
     payments.values().toArray();
   };
 
   public shared ({ caller }) func deletePayment(id : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete payments");
+    };
     payments.remove(id);
   };
+
+  type Expense = {
+    id : Text;
+    category : Text;
+    description : Text;
+    amount : Nat;
+    date : Int;
+    approvedBy : Text;
+  };
+  let expenses = Map.empty<Text, Expense>();
 
   public shared ({ caller }) func createExpense(
     category : Text,
@@ -1621,7 +1963,9 @@ actor {
     date : Int,
     approvedBy : Text,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can create expenses");
+    };
     let newExpense : Expense = {
       id = category # date.toText();
       category;
@@ -1642,7 +1986,9 @@ actor {
     date : Int,
     approvedBy : Text,
   ) : async Text {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can update expenses");
+    };
     let updatedExpense : Expense = {
       id;
       category;
@@ -1656,23 +2002,31 @@ actor {
   };
 
   public query ({ caller }) func getExpense(id : Text) : async Expense {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view expenses");
+    };
     getElem(expenses, id);
   };
 
   public query ({ caller }) func getAllExpenses() : async [Expense] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view expenses");
+    };
     expenses.values().toArray();
   };
 
   public shared ({ caller }) func deleteExpense(id : Text) : async () {
-    // Auth handled at UI layer
+    if (not hasAppRole(caller, "hr")) {
+      Runtime.trap("Unauthorized: Only admins/hr can delete expenses");
+    };
     expenses.remove(id);
   };
 
   // Finance summary queries
   public query ({ caller }) func getTotalFeesCollected() : async Nat {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view finance summaries");
+    };
     var total : Nat = 0;
     for (payment in payments.values()) {
       total += payment.amount;
@@ -1681,7 +2035,9 @@ actor {
   };
 
   public query ({ caller }) func getTotalExpenses() : async Nat {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view finance summaries");
+    };
     var total : Nat = 0;
     for (expense in expenses.values()) {
       total += expense.amount;
@@ -1690,12 +2046,16 @@ actor {
   };
 
   public query ({ caller }) func getUnpaidInvoices() : async [StudentInvoice] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view unpaid invoices");
+    };
     studentInvoices.values().toArray().filter(func(inv) { inv.status == "unpaid" });
   };
 
   public query ({ caller }) func getOverdueInvoices() : async [StudentInvoice] {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view overdue invoices");
+    };
     studentInvoices.values().toArray().filter(func(inv) { inv.status == "overdue" });
   };
 
@@ -1706,7 +2066,9 @@ actor {
     totalStaff : Nat;
     totalCourses : Nat;
   } {
-    // Auth handled at UI layer
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view dashboard stats");
+    };
     {
       totalStudents = students.size();
       totalTeachers = teachers.size();

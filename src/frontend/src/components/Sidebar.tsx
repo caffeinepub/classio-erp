@@ -67,6 +67,12 @@ const navItems: NavItem[] = [
   { id: "payments", label: "Payments", icon: CreditCard, section: "Finance" },
   { id: "expenses", label: "Expenses", icon: TrendingDown, section: "Finance" },
   {
+    id: "financial-report",
+    label: "P&L Report",
+    icon: BarChart3,
+    section: "Finance",
+  },
+  {
     id: "announcements",
     label: "Announcements",
     icon: Megaphone,

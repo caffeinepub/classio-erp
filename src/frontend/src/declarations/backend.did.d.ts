@@ -434,6 +434,7 @@ export interface _SERVICE {
   'getPayment' : ActorMethod<[string], Payment>,
   'getPayrollRecord' : ActorMethod<[string], PayrollRecord>,
   'getPayrollRecordsByStaff' : ActorMethod<[string], Array<PayrollRecord>>,
+  'getAllPayrollRecords' : ActorMethod<[], Array<PayrollRecord>>,
   'getAllAttendanceCorrections' : ActorMethod<[], Array<AttendanceCorrection>>,
   'getPendingAttendanceCorrections' : ActorMethod<
     [],

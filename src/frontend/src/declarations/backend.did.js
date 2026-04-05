@@ -504,6 +504,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(PayrollRecord)],
       ['query'],
     ),
+  'getAllPayrollRecords' : IDL.Func([], [IDL.Vec(PayrollRecord)], ['query']),
   'getAllAttendanceCorrections' : IDL.Func([], [IDL.Vec(AttendanceCorrection)], ['query']),
   'getPendingAttendanceCorrections' : IDL.Func(
       [],
@@ -1198,6 +1199,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(PayrollRecord)],
         ['query'],
       ),
+    'getAllPayrollRecords' : IDL.Func([], [IDL.Vec(PayrollRecord)], ['query']),
     'getAllAttendanceCorrections' : IDL.Func([], [IDL.Vec(AttendanceCorrection)], ['query']),
     'getPendingAttendanceCorrections' : IDL.Func(
         [],

@@ -15,6 +15,7 @@ import DashboardPage from "./pages/DashboardPage";
 import DepartmentsPage from "./pages/DepartmentsPage";
 import ExpensesPage from "./pages/ExpensesPage";
 import FeeStructuresPage from "./pages/FeeStructuresPage";
+import FinancialReportPage from "./pages/FinancialReportPage";
 import GradesPage from "./pages/GradesPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import LeaveRequestsPage from "./pages/LeaveRequestsPage";
@@ -56,7 +57,8 @@ type Page =
   | "settings"
   | "my-leave-requests"
   | "my-attendance"
-  | "salary-slip";
+  | "salary-slip"
+  | "financial-report";
 
 const MAX_HISTORY = 20;
 
@@ -162,6 +164,8 @@ function MainApp() {
         return <PaymentsPage />;
       case "expenses":
         return <ExpensesPage />;
+      case "financial-report":
+        return <FinancialReportPage />;
       case "school-admins":
         return <SchoolAdminsPage />;
       case "user-management":

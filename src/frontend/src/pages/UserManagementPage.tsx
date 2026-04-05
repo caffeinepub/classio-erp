@@ -4,12 +4,18 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -20,17 +26,39 @@ import {
 } from "@/components/ui/table";
 import {
   BookOpen,
+  CheckCircle2,
+  ClipboardCopy,
   Eye,
   EyeOff,
   Info,
   Loader2,
+  RefreshCw,
   Trash2,
   UserPlus,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import type { Teacher } from "../backend.d";
 import { EmptyState, PageHeader } from "../components/shared";
 import { useLocalAuth } from "../hooks/useLocalAuth";
+import { useAllTeachers } from "../hooks/useQueries";
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function generatePassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  return Array.from(
+    { length: 8 },
+    () => chars[Math.floor(Math.random() * chars.length)],
+  ).join("");
+}
+
+function generateUsername(firstName: string, lastName: string): string {
+  return (firstName.toLowerCase() + lastName.toLowerCase().charAt(0)).replace(
+    /\s/g,
+    "",
+  );
+}
 
 type TeacherAccount = {
   username: string;
@@ -67,58 +95,144 @@ function deleteTeacherAccount(username: string) {
   }
 }
 
-type FormState = {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type DialogStep = "form" | "success";
+
+type FormErrors = {
+  teacher?: string;
+  username?: string;
+  password?: string;
+};
+
+type SuccessInfo = {
   name: string;
   username: string;
   password: string;
-  confirmPassword: string;
 };
 
-const EMPTY_FORM: FormState = {
-  name: "",
-  username: "",
-  password: "",
-  confirmPassword: "",
-};
+// ── Credential copy row ───────────────────────────────────────────────────────
+
+function CredRow({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  const copy = async () => {
+    await navigator.clipboard.writeText(value);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        <p
+          className={`text-sm font-semibold truncate ${mono ? "font-mono" : ""}`}
+        >
+          {value}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={copy}
+        className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground shrink-0"
+        title={`Copy ${label}`}
+      >
+        <ClipboardCopy className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function UserManagementPage() {
   const { registerUser } = useLocalAuth();
+  const { data: allTeachers = [], isLoading: teachersLoading } =
+    useAllTeachers();
 
   const [refreshKey, setRefreshKey] = useState(0);
   const teachers = refreshKey >= 0 ? getTeacherAccounts() : [];
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dialogStep, setDialogStep] = useState<DialogStep>("form");
+  const [successInfo, setSuccessInfo] = useState<SuccessInfo | null>(null);
+
+  // Form state
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
+  const [selectedTeacherName, setSelectedTeacherName] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Partial<FormState>>({});
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  const handleFieldChange = (field: keyof FormState, value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      [field]:
-        field === "username" ? value.toLowerCase().replace(/\s/g, "") : value,
-    }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
+  // Filter teachers that don't already have a login
+  const existingNames = new Set(teachers.map((t) => t.name.toLowerCase()));
+  const availableTeachers = allTeachers.filter(
+    (t: Teacher) =>
+      !existingNames.has(`${t.firstName} ${t.lastName}`.toLowerCase()),
+  );
+
+  const handleTeacherSelect = (teacherId: string) => {
+    setSelectedTeacherId(teacherId);
+    setErrors((prev) => ({ ...prev, teacher: undefined }));
+
+    const teacher = allTeachers.find((t: Teacher) => t.id === teacherId);
+    if (!teacher) {
+      setSelectedTeacherName("");
+      setUsername("");
+      setPassword("");
+      return;
     }
+
+    const fullName = `${teacher.firstName} ${teacher.lastName}`;
+    const generatedUsername = generateUsername(
+      teacher.firstName,
+      teacher.lastName,
+    );
+    const generatedPassword = generatePassword();
+
+    setSelectedTeacherName(fullName);
+    setUsername(generatedUsername);
+    setPassword(generatedPassword);
+  };
+
+  const handleUsernameChange = (value: string) => {
+    setUsername(value.toLowerCase().replace(/\s/g, ""));
+    if (errors.username)
+      setErrors((prev) => ({ ...prev, username: undefined }));
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (errors.password)
+      setErrors((prev) => ({ ...prev, password: undefined }));
+  };
+
+  const handleRegenerate = () => {
+    setPassword(generatePassword());
+    if (errors.password)
+      setErrors((prev) => ({ ...prev, password: undefined }));
   };
 
   const validate = (): boolean => {
-    const newErrors: Partial<FormState> = {};
-    if (!form.name.trim()) newErrors.name = "Full name is required";
-    if (!form.username.trim()) newErrors.username = "Username is required";
-    if (!form.password) newErrors.password = "Password is required";
-    else if (form.password.length < 4)
-      newErrors.password = "Minimum 4 characters";
-    if (!form.confirmPassword)
-      newErrors.confirmPassword = "Please confirm password";
-    else if (form.password !== form.confirmPassword)
-      newErrors.confirmPassword = "Passwords do not match";
+    const newErrors: FormErrors = {};
+    if (!selectedTeacherId) newErrors.teacher = "Please select a teacher";
+    if (!username.trim()) newErrors.username = "Username is required";
+    else if (/\s/.test(username))
+      newErrors.username = "Username cannot contain spaces";
+    if (!password) newErrors.password = "Password is required";
+    else if (password.length < 6) newErrors.password = "Minimum 6 characters";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -128,16 +242,18 @@ export default function UserManagementPage() {
     setIsSubmitting(true);
     setTimeout(() => {
       const result = registerUser(
-        form.username.trim(),
-        form.password,
+        username.trim(),
+        password,
         "teacher",
-        form.name.trim(),
+        selectedTeacherName,
       );
       if (result.success) {
-        toast.success(`Teacher login for "${form.name.trim()}" created!`);
-        setForm(EMPTY_FORM);
-        setErrors({});
-        setIsDialogOpen(false);
+        setSuccessInfo({
+          name: selectedTeacherName,
+          username: username.trim(),
+          password,
+        });
+        setDialogStep("success");
         refresh();
       } else {
         toast.error(result.error ?? "Failed to create teacher login");
@@ -146,18 +262,26 @@ export default function UserManagementPage() {
     }, 300);
   };
 
-  const handleDelete = (username: string) => {
-    deleteTeacherAccount(username);
-    toast.success(`Teacher account "${username}" removed`);
+  const handleDelete = (uname: string) => {
+    deleteTeacherAccount(uname);
+    toast.success(`Teacher account "${uname}" removed`);
     setDeleteTarget(null);
     refresh();
   };
 
-  const handleDialogClose = (open: boolean) => {
-    if (!open) {
-      setForm(EMPTY_FORM);
-      setErrors({});
-    }
+  const resetDialog = () => {
+    setDialogStep("form");
+    setSelectedTeacherId("");
+    setSelectedTeacherName("");
+    setUsername("");
+    setPassword("");
+    setShowPassword(false);
+    setErrors({});
+    setSuccessInfo(null);
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) resetDialog();
     setIsDialogOpen(open);
   };
 
@@ -297,155 +421,255 @@ export default function UserManagementPage() {
       </div>
 
       {/* Create Teacher Login Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent data-ocid="teacher_accounts.dialog" className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create Teacher Login</DialogTitle>
-            <DialogDescription>
-              Set up a username and password so the teacher can sign in.
-            </DialogDescription>
-          </DialogHeader>
+          {dialogStep === "form" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Create Teacher Login</DialogTitle>
+                <DialogDescription>
+                  Select a teacher from your staff list — credentials will be
+                  auto-generated.
+                </DialogDescription>
+              </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="teacher-name">Full Name *</Label>
-              <Input
-                id="teacher-name"
-                data-ocid="teacher_accounts.name.input"
-                placeholder="e.g. Rajesh Kumar"
-                value={form.name}
-                onChange={(e) => handleFieldChange("name", e.target.value)}
-              />
-              {errors.name && (
-                <p
-                  data-ocid="teacher_accounts.name.error_state"
-                  className="text-xs text-destructive"
-                >
-                  {errors.name}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="teacher-username">Username *</Label>
-              <Input
-                id="teacher-username"
-                data-ocid="teacher_accounts.input"
-                placeholder="e.g. rkumar (no spaces, lowercase)"
-                value={form.username}
-                onChange={(e) => handleFieldChange("username", e.target.value)}
-                className="font-mono"
-              />
-              {errors.username && (
-                <p
-                  data-ocid="teacher_accounts.username.error_state"
-                  className="text-xs text-destructive"
-                >
-                  {errors.username}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="teacher-password">Password *</Label>
-              <div className="relative">
-                <Input
-                  id="teacher-password"
-                  data-ocid="teacher_accounts.password.input"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Minimum 4 characters"
-                  value={form.password}
-                  onChange={(e) =>
-                    handleFieldChange("password", e.target.value)
-                  }
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+              <div className="space-y-4 py-2">
+                {/* Teacher selector */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="select-teacher">Select Teacher *</Label>
+                  {teachersLoading ? (
+                    <div
+                      data-ocid="teacher_accounts.select.loading_state"
+                      className="flex items-center gap-2 h-10 px-3 rounded-md border border-input text-sm text-muted-foreground"
+                    >
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading teachers...
+                    </div>
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Select
+                      value={selectedTeacherId}
+                      onValueChange={handleTeacherSelect}
+                    >
+                      <SelectTrigger
+                        id="select-teacher"
+                        data-ocid="teacher_accounts.select"
+                      >
+                        <SelectValue
+                          placeholder={
+                            allTeachers.length === 0
+                              ? "No teachers found — add teachers first"
+                              : availableTeachers.length === 0
+                                ? "All teachers already have logins"
+                                : "Choose a teacher..."
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTeachers.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            {allTeachers.length === 0
+                              ? "No teachers found — add teachers first"
+                              : "All teachers already have logins"}
+                          </div>
+                        ) : (
+                          availableTeachers.map((t: Teacher) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.firstName} {t.lastName}
+                              {t.grade ? (
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  ({t.grade})
+                                </span>
+                              ) : null}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                   )}
-                </button>
-              </div>
-              {errors.password && (
-                <p
-                  data-ocid="teacher_accounts.password.error_state"
-                  className="text-xs text-destructive"
-                >
-                  {errors.password}
-                </p>
-              )}
-            </div>
+                  {errors.teacher && (
+                    <p
+                      data-ocid="teacher_accounts.select.error_state"
+                      className="text-xs text-destructive"
+                    >
+                      {errors.teacher}
+                    </p>
+                  )}
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="teacher-confirm">Confirm Password *</Label>
-              <div className="relative">
-                <Input
-                  id="teacher-confirm"
-                  data-ocid="teacher_accounts.confirm_password.input"
-                  type={showConfirm ? "text" : "password"}
-                  placeholder="Repeat the password"
-                  value={form.confirmPassword}
-                  onChange={(e) =>
-                    handleFieldChange("confirmPassword", e.target.value)
-                  }
-                  className="pr-10"
-                />
-                <button
+                {/* Auto-filled name (read-only) */}
+                {selectedTeacherName && (
+                  <div className="space-y-1.5">
+                    <Label>Teacher Name</Label>
+                    <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted/40 text-sm font-medium text-foreground">
+                      {selectedTeacherName}
+                    </div>
+                  </div>
+                )}
+
+                {/* Username */}
+                {selectedTeacherId && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="teacher-username">Username *</Label>
+                    <Input
+                      id="teacher-username"
+                      data-ocid="teacher_accounts.input"
+                      value={username}
+                      onChange={(e) => handleUsernameChange(e.target.value)}
+                      className="font-mono"
+                      placeholder="auto-generated username"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Auto-generated from teacher name — you can edit it.
+                    </p>
+                    {errors.username && (
+                      <p
+                        data-ocid="teacher_accounts.username.error_state"
+                        className="text-xs text-destructive"
+                      >
+                        {errors.username}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Password */}
+                {selectedTeacherId && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="teacher-password">Password *</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="teacher-password"
+                          data-ocid="teacher_accounts.password.input"
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => handlePasswordChange(e.target.value)}
+                          className="pr-10 font-mono"
+                          placeholder="auto-generated password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleRegenerate}
+                        title="Generate new password"
+                        data-ocid="teacher_accounts.password.button"
+                        className="shrink-0"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Auto-generated — click{" "}
+                      <RefreshCw className="inline h-3 w-3" /> to regenerate or
+                      type a custom password.
+                    </p>
+                    {errors.password && (
+                      <p
+                        data-ocid="teacher_accounts.password.error_state"
+                        className="text-xs text-destructive"
+                      >
+                        {errors.password}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  data-ocid="teacher_accounts.cancel_button"
                   type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
+                  variant="outline"
+                  onClick={() => handleDialogOpenChange(false)}
+                  disabled={isSubmitting}
                 >
-                  {showConfirm ? (
-                    <EyeOff className="h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button
+                  data-ocid="teacher_accounts.submit_button"
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={isSubmitting || !selectedTeacherId}
+                  className="gap-2"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <UserPlus className="h-4 w-4" />
                   )}
-                </button>
+                  {isSubmitting ? "Creating..." : "Create Login"}
+                </Button>
               </div>
-              {errors.confirmPassword && (
-                <p
-                  data-ocid="teacher_accounts.confirm_password.error_state"
-                  className="text-xs text-destructive"
-                >
-                  {errors.confirmPassword}
-                </p>
-              )}
-            </div>
-          </div>
+            </>
+          ) : (
+            /* ── Success step ── */
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-green-700">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Login Created!
+                </DialogTitle>
+                <DialogDescription>
+                  Login created for{" "}
+                  <strong className="text-foreground">
+                    {successInfo?.name}
+                  </strong>
+                  . Share these credentials with the teacher.
+                </DialogDescription>
+              </DialogHeader>
 
-          <DialogFooter className="gap-2">
-            <Button
-              data-ocid="teacher_accounts.cancel_button"
-              type="button"
-              variant="outline"
-              onClick={() => handleDialogClose(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              data-ocid="teacher_accounts.submit_button"
-              type="button"
-              onClick={handleCreate}
-              disabled={isSubmitting}
-              className="gap-2"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserPlus className="h-4 w-4" />
-              )}
-              {isSubmitting ? "Creating..." : "Create Login"}
-            </Button>
-          </DialogFooter>
+              <div
+                data-ocid="teacher_accounts.success_state"
+                className="space-y-3 py-2"
+              >
+                <div className="p-4 rounded-lg border border-green-200 bg-green-50/60 space-y-3">
+                  <CredRow
+                    label="Username"
+                    value={successInfo?.username ?? ""}
+                    mono
+                  />
+                  <CredRow
+                    label="Password"
+                    value={successInfo?.password ?? ""}
+                    mono
+                  />
+                </div>
+
+                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800">
+                    Share these credentials with the teacher. The password
+                    cannot be retrieved after closing this window.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  data-ocid="teacher_accounts.close_button"
+                  onClick={() => handleDialogOpenChange(false)}
+                  className="gap-2"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Done
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

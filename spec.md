@@ -1,41 +1,49 @@
 # Classio ERP
 
 ## Current State
-- Salary slip generation broken: `formatAmt` function has mangled Unicode (renders `20b91,000` instead of `₹1,000`) in both PayrollPage and SalarySlipPage
-- Teacher salary slip page always shows "No salary slip" because `user.username` is used as staffId but backend stores payroll by Staff record ID (different format)
-- Salary slip breakdown data stored only in admin's localStorage — teachers on different devices see derived/wrong values
-- Logo is hardcoded static asset across all pages — no dynamic logo upload feature
-- SettingsPage has no logo upload section
-- `getSalarySlipData` in backend returns first indexed record (not most recent)
-- Payroll ID uses staffId+netPay which can collide across months
+
+- Payroll records exist with an `isPaid` boolean; School Admin can click "Mark Paid" which calls `markPayrollAsPaid(id)` on the backend.
+- Expenses have a dedicated module with categories including "Salaries", but there is NO automatic linkage — marking a salary as paid does NOT create an expense entry.
+- `getTotalExpenses()` and `getTotalFeesCollected()` exist on the backend but there is no P&L / Balance Sheet report page.
+- No `getAllPayrollRecords()` backend function exists (payroll can only be queried per-staff).
 
 ## Requested Changes (Diff)
 
 ### Add
-- School logo upload feature: School Admins can upload their school logo from Settings page; stored in localStorage as base64; used across sidebar, salary slip, login page
-- Logo upload card in SettingsPage (visible to School Admin and Super Admin roles)
+- `getAllPayrollRecords()` backend query returning all payroll records across all staff.
+- Auto-expense creation: when `markPayrollAsPaid` is called, the backend atomically creates an `Expense` record with category `"Salaries"`, description `"Salary - <staffId> - Month/Year"`, amount = `netPay`, date = current time, approvedBy = `"Payroll System"`.
+- New `FinancialReportPage.tsx` page accessible to School Admins showing:
+  - **Income section**: total fees collected (from payments), broken down by month if possible.
+  - **Expenses section**: all expenses aggregated by category (Salaries, Rent, Utilities, etc.).
+  - **Profit & Loss summary**: Total Income − Total Expenses = Net Profit / Loss.
+  - **Balance Sheet summary**: Assets (fee receivables from unpaid invoices + cash collected), Liabilities (unpaid payroll), Net Equity.
+  - Period filter: current month, current year, all time.
+  - Printable/exportable view.
+- Sidebar entry "Financial Report" under Finance section for School Admins.
 
 ### Modify
-- Fix `formatAmt` in PayrollPage.tsx: use `₹` character directly, not unicode escape
-- Fix `formatAmt` in SalarySlipPage.tsx: same fix
-- Fix teacher salary slip staffId lookup: instead of using username directly, resolve the matching payroll record by iterating all payroll records and matching by teacher name or store/retrieve by username properly
-- Fix salary slip breakdown storage: save breakdown to backend (via payroll record) OR store in sessionStorage/localStorage keyed by staffId resolved from backend — use `getPayrollRecordsByStaff` with resolved staffId
-- Fix salary slip to show the most recent record (sort by year desc, month desc)
-- Store salary slip breakdown in the payroll record notes/metadata or as part of a well-known localStorage key that uses staffId from the payroll record itself
-- PayrollPage: save breakdown with key using the record's staffId (not username), ensure teachers can retrieve by their linked staffId
-- Backend `getSalarySlipData`: return most recent payroll record (sort by year/month desc)
-- Fix payroll ID generation to include month+year to avoid collisions
-- School logo: when `classio_school_logo` key exists in localStorage, use it as the `src` for all logo `<img>` tags across Sidebar, SalarySlipPage, PayrollPage salary slip dialog, and AuthGate login page
+- `markPayrollAsPaid` backend function: after setting `isPaid = true`, atomically call `createExpense` internally so the expense is created in the same transaction.
+- `ExpensesPage.tsx`: salary auto-entries from payroll will appear in the expenses list with category "Salaries" — no changes needed to the page itself, it will just show them automatically.
+- `PayrollPage.tsx`: after marking paid, invalidate both `["payroll"]` and `["expenses"]` query caches so both pages reflect the new state immediately.
 
 ### Remove
-- Nothing removed
+- Nothing removed.
 
 ## Implementation Plan
-1. Fix `formatAmt` in PayrollPage.tsx and SalarySlipPage.tsx (use literal `₹`)
-2. Fix payroll ID in backend to include month+year
-3. Fix `getSalarySlipData` to return most recent record
-4. Fix SalarySlipPage staffId resolution: call `getPayrollRecordsByStaff` for all staff, find the record where staffId matches teacher's linked staff, or use a new backend function `getSalarySlipByUsername` that accepts the teacher username and resolves via teacher accounts
-5. Fix salary slip breakdown: in PayrollPage when generating, also save breakdown with a key of `payroll_breakdown_${record.staffId}_${record.month}_${record.year}` AND as `payroll_breakdown_latest_${record.staffId}` so teacher can retrieve the latest
-6. Fix SalarySlipPage to use `payroll_breakdown_latest_${staffId}` fallback
-7. Add logo upload card in SettingsPage (visible to schoolAdmin, superAdmin, hr roles)
-8. Update Sidebar, SalarySlipPage, PayrollPage salary slip dialog, AuthGate to read logo from `localStorage.getItem('classio_school_logo')` and fall back to default static asset
+
+1. **Backend `main.mo`**:
+   - Add `getAllPayrollRecords()` public query returning `[PayrollRecord]`.
+   - Modify `markPayrollAsPaid(payrollId)` to also call internal expense creation: generate a unique expense id, set category = `"Salaries"`, description = `"Salary - " # record.staffId # " - " # Nat.toText(record.month) # "/" # Nat.toText(record.year)`, amount = `record.netPay`, date = `Time.now()`, approvedBy = `"Payroll System"`.
+
+2. **Frontend**:
+   - Add `useAllPayrollRecords()` hook in `useQueries.ts`.
+   - Update `useMarkPayrollAsPaid` mutation to also invalidate `["expenses"]` query key on success.
+   - Create `src/frontend/src/pages/FinancialReportPage.tsx` with:
+     - Period selector (This Month / This Year / All Time).
+     - Income table: fee payments grouped by month.
+     - Expenses table: grouped by category with subtotals.
+     - P&L summary card: Total Income, Total Expenses, Net Profit/Loss (color-coded).
+     - Balance Sheet card: Assets (cash collected + outstanding invoices), Liabilities (unpaid net payroll), Net Equity.
+     - Print button.
+   - Add route `/financial-report` in `App.tsx`.
+   - Add sidebar item "Financial Report" (e.g., BarChart icon) visible only to School Admin and Super Admin.

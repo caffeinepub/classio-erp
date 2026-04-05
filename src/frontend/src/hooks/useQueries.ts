@@ -887,7 +887,25 @@ export function useMarkPayrollAsPaid() {
       if (!actor) throw new Error("No actor");
       return actor.markPayrollAsPaid(id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["payroll"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payroll"] });
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["totalExpenses"] });
+      qc.invalidateQueries({ queryKey: ["allPayrollRecords"] });
+    },
+  });
+}
+
+export function useAllPayrollRecords() {
+  const { actor, isFetching } = useActor();
+  return useQuery<PayrollRecord[]>({
+    queryKey: ["allPayrollRecords"],
+    queryFn: async () => {
+      if (!actor) return [];
+      // getAllPayrollRecords exists in DID but not yet in backendInterface type
+      return (actor as any).getAllPayrollRecords();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
 
