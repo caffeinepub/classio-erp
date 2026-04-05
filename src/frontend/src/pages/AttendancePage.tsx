@@ -18,12 +18,12 @@ import { toast } from "sonner";
 import { EmptyState, PageHeader } from "../components/shared";
 import {
   useAddTeacherAttendance,
+  useAllAttendanceCorrections,
   useAllClasses,
   useAllStudents,
   useAllTeachers,
   useApproveAttendanceCorrection,
   useAttendanceByClass,
-  usePendingAttendanceCorrections,
   useRecordAttendance,
   useRejectAttendanceCorrection,
   useTeacherAttendanceByDate,
@@ -36,8 +36,11 @@ export default function AttendancePage() {
   const { data: teachers } = useAllTeachers();
   const recordAttendance = useRecordAttendance();
   const addTeacherAttendance = useAddTeacherAttendance();
-  const { data: pendingCorrections = [], isLoading: correctionsLoading } =
-    usePendingAttendanceCorrections();
+  const { data: allCorrections = [], isLoading: correctionsLoading } =
+    useAllAttendanceCorrections();
+  const pendingCorrections = (allCorrections as any[]).filter(
+    (c: any) => c.status === "pending",
+  );
   const approveCorrection = useApproveAttendanceCorrection();
   const rejectCorrection = useRejectAttendanceCorrection();
 
@@ -179,9 +182,9 @@ export default function AttendancePage() {
           >
             <ClipboardList className="h-4 w-4 mr-1.5" />
             Teacher Requests
-            {(pendingCorrections as any[]).length > 0 && (
+            {pendingCorrections.length > 0 && (
               <span className="ml-1.5 bg-primary text-primary-foreground text-xs rounded-full px-1.5 py-0.5 leading-none">
-                {(pendingCorrections as any[]).length}
+                {pendingCorrections.length}
               </span>
             )}
           </TabsTrigger>
@@ -473,7 +476,12 @@ export default function AttendancePage() {
                 Teacher Attendance Requests
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Approve or reject attendance submissions from teachers
+                Approve or reject attendance submissions from teachers.{" "}
+                {pendingCorrections.length > 0 && (
+                  <span className="text-yellow-700 font-medium">
+                    {pendingCorrections.length} pending
+                  </span>
+                )}
               </p>
             </CardHeader>
             <CardContent>
@@ -481,73 +489,106 @@ export default function AttendancePage() {
                 <div className="flex items-center justify-center py-10">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : (pendingCorrections as any[]).length === 0 ? (
+              ) : (allCorrections as any[]).length === 0 ? (
                 <EmptyState
-                  title="No pending requests"
-                  description="Teacher attendance requests will appear here for approval"
+                  title="No attendance requests"
+                  description="Teacher attendance submissions will appear here for approval"
                   ocid="attendance.requests.empty_state"
                 />
               ) : (
                 <div className="space-y-3">
-                  {(pendingCorrections as any[]).map((req: any, i: number) => (
-                    <div
-                      key={req.id}
-                      data-ocid={`attendance.requests.item.${i + 1}`}
-                      className="flex items-center justify-between gap-4 p-4 rounded-lg border border-border bg-muted/20 flex-wrap"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-foreground">
-                            {req.staffId}
-                          </p>
-                          <Badge
-                            variant="outline"
-                            className="bg-green-50 text-green-700 border-green-200 text-xs"
-                          >
-                            {req.requestedStatus}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs capitalize"
-                          >
-                            {req.status}
-                          </Badge>
+                  {[...(allCorrections as any[])]
+                    .sort((a: any, b: any) => {
+                      if (a.status === "pending" && b.status !== "pending")
+                        return -1;
+                      if (a.status !== "pending" && b.status === "pending")
+                        return 1;
+                      return Number(b.date) - Number(a.date);
+                    })
+                    .map((req: any, i: number) => {
+                      const teacher = (teachers ?? []).find(
+                        (t: any) => t.id === req.staffId,
+                      );
+                      const teacherName = teacher
+                        ? `${teacher.firstName} ${teacher.lastName}`
+                        : req.staffId;
+                      const isPending = req.status === "pending";
+                      const statusClass =
+                        req.status === "approved"
+                          ? "bg-green-50 text-green-700 border-green-200"
+                          : req.status === "rejected"
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : "bg-yellow-50 text-yellow-700 border-yellow-200";
+                      return (
+                        <div
+                          key={req.id}
+                          data-ocid={`attendance.requests.item.${i + 1}`}
+                          className={cn(
+                            "flex items-center justify-between gap-4 p-4 rounded-lg border flex-wrap",
+                            isPending
+                              ? "border-yellow-200 bg-yellow-50/30"
+                              : "border-border bg-muted/20",
+                          )}
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold text-foreground">
+                                {teacherName}
+                              </p>
+                              <Badge
+                                variant="outline"
+                                className="bg-green-50 text-green-700 border-green-200 text-xs"
+                              >
+                                {req.requestedStatus}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-xs capitalize",
+                                  statusClass,
+                                )}
+                              >
+                                {req.status}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Date: {bigIntToDateString(req.date)}
+                            </p>
+                            {req.reason && (
+                              <p className="text-xs text-muted-foreground italic">
+                                &ldquo;{req.reason}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                          {isPending && (
+                            <div className="flex gap-2 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-green-300 text-green-700 hover:bg-green-50"
+                                disabled={approveCorrection.isPending}
+                                onClick={() => handleApproveCorrection(req.id)}
+                                data-ocid={`attendance.requests.approve.${i + 1}`}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1.5" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-300 text-red-600 hover:bg-red-50"
+                                disabled={rejectCorrection.isPending}
+                                onClick={() => handleRejectCorrection(req.id)}
+                                data-ocid={`attendance.requests.reject.${i + 1}`}
+                              >
+                                <XCircle className="h-4 w-4 mr-1.5" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Date: {bigIntToDateString(req.date)}
-                        </p>
-                        {req.reason && (
-                          <p className="text-xs text-muted-foreground italic">
-                            {req.reason}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-green-300 text-green-700 hover:bg-green-50"
-                          disabled={approveCorrection.isPending}
-                          onClick={() => handleApproveCorrection(req.id)}
-                          data-ocid={`attendance.requests.approve.${i + 1}`}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1.5" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-300 text-red-600 hover:bg-red-50"
-                          disabled={rejectCorrection.isPending}
-                          onClick={() => handleRejectCorrection(req.id)}
-                          data-ocid={`attendance.requests.reject.${i + 1}`}
-                        >
-                          <XCircle className="h-4 w-4 mr-1.5" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               )}
             </CardContent>

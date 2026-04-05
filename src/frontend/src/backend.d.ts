@@ -354,6 +354,7 @@ export interface backendInterface {
     getPayment(id: string): Promise<Payment>;
     getPayrollRecord(id: string): Promise<PayrollRecord>;
     getPayrollRecordsByStaff(staffId: string): Promise<Array<PayrollRecord>>;
+    getAllAttendanceCorrections(): Promise<Array<AttendanceCorrection>>;
     getPendingAttendanceCorrections(): Promise<Array<AttendanceCorrection>>;
     getPendingLeaveRequests(): Promise<Array<LeaveRequest>>;
     getResourceLinksByCourse(courseId: string): Promise<Array<ResourceLink>>;

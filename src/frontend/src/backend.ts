@@ -437,6 +437,7 @@ export interface backendInterface {
     getPayment(id: string): Promise<Payment>;
     getPayrollRecord(id: string): Promise<PayrollRecord>;
     getPayrollRecordsByStaff(staffId: string): Promise<Array<PayrollRecord>>;
+    getAllAttendanceCorrections(): Promise<Array<AttendanceCorrection>>;
     getPendingAttendanceCorrections(): Promise<Array<AttendanceCorrection>>;
     getPendingLeaveRequests(): Promise<Array<LeaveRequest>>;
     getResourceLinksByCourse(courseId: string): Promise<Array<ResourceLink>>;
@@ -1578,6 +1579,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getPayrollRecordsByStaff(arg0);
+            return result;
+        }
+    }
+    async getAllAttendanceCorrections(): Promise<Array<AttendanceCorrection>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllAttendanceCorrections();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllAttendanceCorrections();
             return result;
         }
     }

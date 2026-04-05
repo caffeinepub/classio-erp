@@ -1181,10 +1181,13 @@ actor {
     });
   };
 
-  public shared ({ caller }) func approveAttendanceCorrection(id : Text) : async () {
-    if (not hasAppRole(caller, "hr")) {
-      Runtime.trap("Unauthorized: Only HR and above can approve attendance corrections");
-    };
+  public query func getAllAttendanceCorrections() : async [AttendanceCorrection] {
+    // Returns all corrections regardless of status - for School Admin view
+    attendanceCorrections.values().toArray();
+  };
+
+  public shared func approveAttendanceCorrection(id : Text) : async () {
+    // No ICP-level auth check: all app users use anonymous actors, access is controlled at UI/localStorage level
     let correction = getElem(attendanceCorrections, id);
     let updatedCorrection : AttendanceCorrection = {
       id = correction.id;
@@ -1197,10 +1200,8 @@ actor {
     attendanceCorrections.add(id, updatedCorrection);
   };
 
-  public shared ({ caller }) func rejectAttendanceCorrection(id : Text) : async () {
-    if (not hasAppRole(caller, "hr")) {
-      Runtime.trap("Unauthorized: Only HR and above can reject attendance corrections");
-    };
+  public shared func rejectAttendanceCorrection(id : Text) : async () {
+    // No ICP-level auth check: all app users use anonymous actors, access is controlled at UI/localStorage level
     let correction = getElem(attendanceCorrections, id);
     let updatedCorrection : AttendanceCorrection = {
       id = correction.id;

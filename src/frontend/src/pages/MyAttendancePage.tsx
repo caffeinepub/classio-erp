@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { EmptyState, PageHeader } from "../components/shared";
 import { useLocalAuth } from "../hooks/useLocalAuth";
 import {
-  usePendingAttendanceCorrections,
+  useAllAttendanceCorrections,
   useSubmitAttendanceCorrection,
 } from "../hooks/useQueries";
 import { bigIntToDateString, dateToBigInt } from "../utils/dateUtils";
@@ -212,7 +212,7 @@ export default function MyAttendancePage() {
   const { user } = useLocalAuth();
   const staffId = user?.username ?? "";
 
-  const { data: corrections, isLoading } = usePendingAttendanceCorrections();
+  const { data: corrections, isLoading } = useAllAttendanceCorrections();
   const submitCorrection = useSubmitAttendanceCorrection();
 
   const myCorrections = (corrections ?? []).filter(

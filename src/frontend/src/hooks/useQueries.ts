@@ -459,6 +459,19 @@ export function useAddTeacherAttendance() {
 }
 
 // ── Attendance Corrections ─────────────────────────────────────────────────
+export function useAllAttendanceCorrections() {
+  const { actor, isFetching } = useActor();
+  return useQuery<AttendanceCorrection[]>({
+    queryKey: ["attendanceCorrections", "all"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllAttendanceCorrections();
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 5000, // poll every 5s so admin sees new submissions promptly
+  });
+}
+
 export function usePendingAttendanceCorrections() {
   const { actor, isFetching } = useActor();
   return useQuery<AttendanceCorrection[]>({
