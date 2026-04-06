@@ -13,6 +13,7 @@ import CourseDetailPage from "./pages/CourseDetailPage";
 import CoursesPage from "./pages/CoursesPage";
 import DashboardPage from "./pages/DashboardPage";
 import DepartmentsPage from "./pages/DepartmentsPage";
+import DocumentsPage from "./pages/DocumentsPage";
 import ExpensesPage from "./pages/ExpensesPage";
 import FeeStructuresPage from "./pages/FeeStructuresPage";
 import FinancialReportPage from "./pages/FinancialReportPage";
@@ -58,7 +59,8 @@ type Page =
   | "my-leave-requests"
   | "my-attendance"
   | "salary-slip"
-  | "financial-report";
+  | "financial-report"
+  | "documents";
 
 const MAX_HISTORY = 20;
 
@@ -178,6 +180,8 @@ function MainApp() {
         return <MyAttendancePage />;
       case "salary-slip":
         return <SalarySlipPage />;
+      case "documents":
+        return <DocumentsPage />;
       default:
         return <DashboardPage onNavigate={handleNavigate} />;
     }

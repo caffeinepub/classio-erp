@@ -111,6 +111,12 @@ const navItems: NavItem[] = [
     section: "Administration",
   },
   {
+    id: "documents",
+    label: "Documents",
+    icon: FileText,
+    section: "Administration",
+  },
+  {
     id: "settings",
     label: "Settings",
     icon: Settings,

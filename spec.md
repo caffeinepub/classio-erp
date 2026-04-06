@@ -1,33 +1,33 @@
-# Classio ERP
+# Classio ERP - Board-Specific Document Templates
 
 ## Current State
-Teacher accounts (and School Admin accounts) created by users are stored exclusively in `localStorage` under the key `classio_registered_users`. This means:
-- Accounts are lost when the browser cache is cleared
-- Accounts only exist on the device/browser where they were created
-- Different users (e.g., a teacher logging in from a different device) cannot authenticate
-- The "fetch data" issue is directly caused by this — dynamically registered accounts are not fetched from the backend
-
-The backend has no user account storage at all. `useLocalAuth.tsx` reads/writes accounts from `localStorage`. `UserManagementPage.tsx` also reads directly from `localStorage` to list/delete accounts.
+DocumentsPage exists with 10 document templates. Currently no board differentiation — all forms are generic. User needs board-specific government formats for CBSE, ICSE, and State Board schools.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `userAccounts` stable map in the backend: stores `username -> { passwordHash, role, name }` records
-- Backend functions: `getAllUserAccounts`, `createUserAccount`, `deleteUserAccount`, `validateUserAccount`
-- On app startup, `useLocalAuth` migrates any existing `classio_registered_users` from localStorage into the backend (one-time migration)
+- **Board Selector** at the top of DocumentsPage (CBSE / ICSE / State Board) — persisted in localStorage as `classio_school_board`
+- Board-specific field sets and print formats for each document type:
+  - **CBSE**: Uses CBSE-specific terminology and mandatory fields per CBSE bye-laws (e.g., TC must have SLC serial number, Examination Board = CBSE, Affiliation No)
+  - **ICSE**: CISCE affiliation number, council-specific fields
+  - **State Board**: State name selector, state board affiliation, vernacular language fields
+- Board badge shown on every printed document
+- Affiliation number field in school settings (pulled into document headers)
+- Board-specific additional documents:
+  - **CBSE only**: SLC (School Leaving Certificate per CBSE format), Provisional Certificate
+  - **ICSE only**: CISCE NOC format, Internal Assessment Sheet
+  - **State Board only**: State-specific TC format, Caste Certificate Annexure
 
 ### Modify
-- `useLocalAuth.tsx`: `login()` validates credentials against backend (via actor) in addition to built-in ACCOUNTS; `registerUser()` creates account in backend; session (logged-in user object) still stored in localStorage for UI state only
-- `UserManagementPage.tsx`: account list fetched from backend via new query hook; delete also calls backend
-- `useQueries.ts`: add `useUserAccounts`, `useCreateUserAccount`, `useDeleteUserAccount` hooks
+- DocumentsPage: Add board selector at top, board context passed to all document forms and print previews
+- Each document form: Show/hide board-specific fields based on selected board
+- Print preview headers: Show board name and affiliation number
+- SettingsPage: Add school board and affiliation number fields
 
 ### Remove
-- Direct localStorage reads/writes for `classio_registered_users` in `UserManagementPage.tsx` and `useLocalAuth.tsx`
+- Nothing removed
 
 ## Implementation Plan
-1. Add `UserAccount` type and `userAccounts` stable map to `main.mo` with `getAllUserAccounts`, `createUserAccount`, `deleteUserAccount`, `validateUserAccount` functions
-2. Regenerate `backend.d.ts` type bindings
-3. Add React Query hooks in `useQueries.ts` for user account operations
-4. Update `useLocalAuth.tsx` to validate login against backend accounts (with fallback to built-in ACCOUNTS)
-5. Update `UserManagementPage.tsx` to list/create/delete accounts via backend hooks
-6. Add one-time localStorage migration on app init
+1. Read current DocumentsPage.tsx fully to understand structure
+2. Rewrite DocumentsPage with board selector and board-specific form variants
+3. Update SettingsPage to add board and affiliation number

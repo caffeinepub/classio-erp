@@ -308,7 +308,174 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+        {/* Board & Affiliation */}
+        {canManageLogo && <BoardAffiliationCard />}
       </div>
     </div>
+  );
+}
+
+function BoardAffiliationCard() {
+  const [board, setBoard] = useState<string>(
+    () => localStorage.getItem("classio_school_board") || "cbse",
+  );
+  const [state, setState] = useState<string>(
+    () => localStorage.getItem("classio_school_state") || "",
+  );
+  const [affiliation, setAffiliation] = useState<string>(
+    () => localStorage.getItem("classio_school_affiliation") || "",
+  );
+  const [udise, setUdise] = useState<string>(
+    () => localStorage.getItem("classio_school_udise") || "",
+  );
+  const [address, setAddress] = useState<string>(
+    () => localStorage.getItem("classio_school_address") || "",
+  );
+
+  const save = () => {
+    localStorage.setItem("classio_school_board", board);
+    localStorage.setItem("classio_school_state", state);
+    localStorage.setItem("classio_school_affiliation", affiliation);
+    localStorage.setItem("classio_school_udise", udise);
+    if (address) localStorage.setItem("classio_school_address", address);
+    toast.success("Board settings saved");
+  };
+
+  const BOARDS = [
+    { id: "cbse", label: "CBSE", sub: "Central Board of Secondary Education" },
+    {
+      id: "icse",
+      label: "ICSE",
+      sub: "CISCE – Council for Indian School Certificate",
+    },
+    {
+      id: "stateboard",
+      label: "State Board",
+      sub: "State Government Board of Education",
+    },
+  ];
+
+  const STATES = [
+    "Andhra Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Delhi",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Tamil Nadu",
+    "Telangana",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+    "Other",
+  ];
+
+  return (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <School className="h-5 w-5 text-primary" /> Board & Affiliation
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">
+              School Board
+            </Label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {BOARDS.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setBoard(b.id)}
+                  className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                    board === b.id
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-foreground border-border hover:bg-accent"
+                  }`}
+                >
+                  {b.label}
+                  <span className="block text-xs font-normal opacity-70">
+                    {b.sub}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {board === "stateboard" && (
+            <div className="space-y-2">
+              <Label>State</Label>
+              <select
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                className="w-full max-w-xs h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="">Select state...</option>
+                {STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>
+                {board === "cbse"
+                  ? "CBSE Affiliation Number"
+                  : board === "icse"
+                    ? "CISCE School Code"
+                    : "Board Registration Number"}
+              </Label>
+              <Input
+                data-ocid="settings.affiliation.input"
+                value={affiliation}
+                onChange={(e) => setAffiliation(e.target.value)}
+                placeholder="e.g. 930123"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>UDISE Number</Label>
+              <Input
+                data-ocid="settings.udise.input"
+                value={udise}
+                onChange={(e) => setUdise(e.target.value)}
+                placeholder="11-digit UDISE code"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>School Address (for document headers)</Label>
+            <Input
+              data-ocid="settings.address.input"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123, School Road, City - 400001, State, India"
+            />
+          </div>
+
+          <div className="pt-1">
+            <Button onClick={save} data-ocid="settings.board.save_button">
+              Save Board Settings
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
